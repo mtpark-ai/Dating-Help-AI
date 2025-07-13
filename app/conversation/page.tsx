@@ -11,11 +11,7 @@ import { ChevronDown, ChevronUp, Copy, User, MessageCircle, Sparkles, RotateCcw,
 import Header from "@/components/header"
 import { useToast } from "@/hooks/use-toast"
 import { Toaster } from "@/components/ui/toaster"
-
-interface Message {
-  sender: "match" | "user"
-  message: string
-}
+import { conversationAPI, type Message } from "@/api/conversation"
 
 export default function ConversationPage() {
   const [isInfoExpanded, setIsInfoExpanded] = useState(true)
@@ -33,49 +29,36 @@ export default function ConversationPage() {
 
   const [conversation, setConversation] = useState<Message[]>([])
 
-  const replyOptions = [
-    [
-      "That sounds amazing! I'd love to check out that trail sometime. Maybe we could go together?",
-      "Hiking is such a great way to stay active! What's your favorite trail so far?",
-      "Sounds like you had an amazing time! I'd love to hear more about your hiking adventures.",
-      "That sounds like the perfect weekend! Do you have any favorite hiking spots?",
-      "Mountain hiking is incredible! I bet the views were breathtaking.",
-    ],
-    [
-      "Wow, mountain hiking is the best! I bet the photos turned out incredible. Care to share some?",
-      "The mountains sound incredible! I'm always looking for new places to explore.",
-      "Mountain views are the best! Do you have any photos from the hike?",
-      "I love mountain adventures! What was the most challenging part of the hike?",
-      "That sounds like such a scenic adventure! I'm getting inspired to plan my own hike.",
-    ],
-    [
-      "I'm definitely adding that to my hiking bucket list! Do you have any other favorite spots?",
-      "That sounds like such a fun weekend! What other outdoor activities do you enjoy?",
-      "That sounds like such a fun weekend! What other outdoor activities do you enjoy?",
-      "Outdoor adventures are the best! What's next on your adventure list?",
-      "I love hearing about outdoor adventures! Any tips for someone new to hiking?",
-    ],
-  ]
 
   const handleRegenerateReply = async (index: number) => {
     setRegeneratingIndex(index)
 
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1500))
+    // 不再需要根据消息类型区分，统一生成高质量回复
 
-    const newReplies = [...generatedReplies]
-    const currentReply = newReplies[index]
-    const availableReplies = replyOptions[index] || replyOptions[0]
+    try {
+      const currentReply = generatedReplies[index]
+      const response = await conversationAPI.regenerateReply({
+        conversation,
+        matchName: matchName || undefined,
+        otherInfo: otherInfo || undefined,
+        tone: selectedTone,
+        currentReply,
+        replyIndex: index
+      })
 
-    // 过滤掉当前回复，确保生成不同的回复
-    const differentReplies = availableReplies.filter((reply) => reply !== currentReply)
-
-    // 随机选择一个不同的回复
-    const randomIndex = Math.floor(Math.random() * differentReplies.length)
-    newReplies[index] = differentReplies[randomIndex] || availableReplies[0]
-
-    setGeneratedReplies(newReplies)
-    setRegeneratingIndex(null)
+      const newReplies = [...generatedReplies]
+      newReplies[index] = response.reply
+      setGeneratedReplies(newReplies)
+    } catch (error) {
+      console.error('Failed to regenerate reply:', error)
+      toast({
+        description: "Failed to regenerate reply. Please try again.",
+        duration: 3000,
+        className: "fixed bottom-4 right-4 bg-red-50 border border-red-200 shadow-lg rounded-lg p-3 w-auto max-w-[280px]",
+      })
+    } finally {
+      setRegeneratingIndex(null)
+    }
   }
 
   const handleGenerateAnswer = async () => {
@@ -84,19 +67,29 @@ export default function ConversationPage() {
       return
     }
 
+    // 统一处理，无需区分消息类型
+
     setIsGenerating(true)
 
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 2000))
+    try {
+      const response = await conversationAPI.generateReplies({
+        conversation,
+        matchName: matchName || undefined,
+        otherInfo: otherInfo || undefined,
+        tone: selectedTone
+      })
 
-    // 为每个位置随机选择一个回复
-    const newReplies = replyOptions.map((optionSet) => {
-      const randomIndex = Math.floor(Math.random() * optionSet.length)
-      return optionSet[randomIndex]
-    })
-
-    setGeneratedReplies(newReplies)
-    setIsGenerating(false)
+      setGeneratedReplies(response.replies)
+    } catch (error) {
+      console.error('Failed to generate replies:', error)
+      toast({
+        description: "Failed to generate replies. Please try again.",
+        duration: 3000,
+        className: "fixed bottom-4 right-4 bg-red-50 border border-red-200 shadow-lg rounded-lg p-3 w-auto max-w-[280px]",
+      })
+    } finally {
+      setIsGenerating(false)
+    }
   }
 
   const handleAddMessage = () => {
@@ -111,7 +104,7 @@ export default function ConversationPage() {
     setNewMessage("")
   }
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault()
       handleAddMessage()
@@ -291,7 +284,7 @@ export default function ConversationPage() {
                   placeholder={`Type ${messageType === "match" ? "match's" : "your"} message...`}
                   value={newMessage}
                   onChange={(e) => setNewMessage(e.target.value)}
-                  onKeyPress={handleKeyPress}
+                  onKeyDown={handleKeyDown}
                   className="flex-1 rounded-xl border-gray-200 focus:ring-0 focus:border-gray-200 focus:outline-none h-10 text-sm"
                 />
                 <Button
@@ -340,7 +333,7 @@ export default function ConversationPage() {
                     <span>Generating...</span>
                   </div>
                 ) : (
-                  "Generate Answer"
+                  "Generate Reply"
                 )}
               </Button>
             </div>
@@ -350,38 +343,42 @@ export default function ConversationPage() {
           {generatedReplies.length > 0 && (
             <CardContent className="py-3 border-t border-gray-100 flex-shrink-0">
               <div className="space-y-2">
-                {generatedReplies.map((reply, index) => (
-                  <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded-xl">
-                    <div className="flex items-center space-x-2">
+                {generatedReplies.map((reply, index) => {
+                  return (
+                    <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded-xl">
+                      <div className="flex items-center space-x-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleRegenerateReply(index)}
+                          disabled={regeneratingIndex === index}
+                          className="p-1 hover:bg-gray-200 rounded-lg"
+                        >
+                          {regeneratingIndex === index ? (
+                            <Sparkles className="w-4 h-4 animate-spin text-purple-500" />
+                          ) : (
+                            <RotateCcw className="w-4 h-4 text-gray-500 hover:text-purple-500" />
+                          )}
+                        </Button>
+                        <MessageCircle className="w-4 h-4 text-purple-500" />
+                        <span className="text-xs font-medium text-gray-700">
+                          Reply {index + 1}
+                        </span>
+                      </div>
+                      <div className="flex-1 mx-3">
+                        <p className="text-xs text-gray-900">{reply}</p>
+                      </div>
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleRegenerateReply(index)}
-                        disabled={regeneratingIndex === index}
+                        onClick={() => copyToClipboard(reply)}
                         className="p-1 hover:bg-gray-200 rounded-lg"
                       >
-                        {regeneratingIndex === index ? (
-                          <Sparkles className="w-4 h-4 animate-spin text-purple-500" />
-                        ) : (
-                          <RotateCcw className="w-4 h-4 text-gray-500 hover:text-purple-500" />
-                        )}
+                        <Copy className="w-4 h-4 text-gray-500" />
                       </Button>
-                      <MessageCircle className="w-4 h-4 text-purple-500" />
-                      <span className="text-xs font-medium text-gray-700">Reply {index + 1}</span>
                     </div>
-                    <div className="flex-1 mx-3">
-                      <p className="text-xs text-gray-900">{reply}</p>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => copyToClipboard(reply)}
-                      className="p-1 hover:bg-gray-200 rounded-lg"
-                    >
-                      <Copy className="w-4 h-4 text-gray-500" />
-                    </Button>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             </CardContent>
           )}
