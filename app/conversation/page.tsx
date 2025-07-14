@@ -67,7 +67,8 @@ export default function ConversationPage() {
       return
     }
 
-    // 统一处理，无需区分消息类型
+    // Collapse Information section when Generate Reply is clicked
+    setIsInfoExpanded(false)
 
     setIsGenerating(true)
 
@@ -361,9 +362,6 @@ export default function ConversationPage() {
                           )}
                         </Button>
                         <MessageCircle className="w-4 h-4 text-purple-500" />
-                        <span className="text-xs font-medium text-gray-700">
-                          Reply {index + 1}
-                        </span>
                       </div>
                       <div className="flex-1 mx-3">
                         <p className="text-xs text-gray-900">{reply}</p>
