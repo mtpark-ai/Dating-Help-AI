@@ -27,6 +27,8 @@ export default function PickupLinesPage() {
   const [generatedReplies, setGeneratedReplies] = useState<string[]>([])
   const [isGenerating, setIsGenerating] = useState(false)
   const [regeneratingIndex, setRegeneratingIndex] = useState<number | null>(null)
+  const [profileAnalysis, setProfileAnalysis] = useState<any>(null)
+  const [isAnalyzing, setIsAnalyzing] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
 
@@ -72,6 +74,73 @@ export default function PickupLinesPage() {
     // Reset the input
     if (fileInputRef.current) {
       fileInputRef.current.value = ""
+    }
+  }
+
+  const handleAnalyzeProfile = async () => {
+    if (uploadedImages.length === 0) {
+      toast({
+        description: "Please upload at least one profile image first.",
+        duration: 3000,
+        className: "fixed bottom-4 right-4 bg-red-50 border border-red-200 shadow-lg rounded-lg p-3 w-auto max-w-[280px]",
+      })
+      return
+    }
+
+    setIsAnalyzing(true)
+    
+    try {
+      const images = uploadedImages.map(img => img.preview)
+      const response = await fetch('/api/profile-analysis', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          images,
+          matchName,
+          otherInfo
+        })
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        console.error('API Error:', errorData)
+        throw new Error(errorData.details || 'Failed to analyze profile')
+      }
+
+      const result = await response.json()
+      setProfileAnalysis(result)
+      
+      // Log analysis to console for terminal display
+      console.log('=== Profile Analysis Results ===')
+      console.log('Text Content:', result.textContent)
+      console.log('Visual Content:', result.visualContent)
+      console.log('Summary:', result.summary)
+      console.log('Insights:', result.insights)
+      console.log('================================')
+      
+      toast({
+        description: (
+          <div className="flex items-center space-x-2">
+            <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
+              <Check className="w-3 h-3 text-white" />
+            </div>
+            <span className="text-gray-900 text-sm">Profile analyzed successfully! Check console for details.</span>
+          </div>
+        ),
+        duration: 3000,
+        className: "fixed bottom-4 right-4 bg-white border border-gray-200 shadow-lg rounded-lg p-3 w-auto max-w-[320px]",
+      })
+    } catch (error) {
+      console.error('Profile analysis error:', error)
+      toast({
+        description: "Failed to analyze profile. Please try again.",
+        duration: 3000,
+        className: "fixed bottom-4 right-4 bg-red-50 border border-red-200 shadow-lg rounded-lg p-3 w-auto max-w-[280px]",
+      })
+    } finally {
+      setIsAnalyzing(false)
     }
   }
 
@@ -191,7 +260,23 @@ export default function PickupLinesPage() {
 
           {/* Screenshot Section */}
           <CardContent className="py-3 border-t border-gray-100">
-            <h3 className="text-lg font-semibold text-gray-900 mb-3">Screenshot</h3>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-lg font-semibold text-gray-900">Profile Screenshots</h3>
+              <Button
+                onClick={handleAnalyzeProfile}
+                disabled={isAnalyzing || uploadedImages.length === 0}
+                className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white px-4 py-2 rounded-xl shadow-md hover:shadow-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+              >
+                {isAnalyzing ? (
+                  <div className="flex items-center space-x-2">
+                    <Sparkles className="w-3 h-3 animate-spin" />
+                    <span>Analyzing...</span>
+                  </div>
+                ) : (
+                  "Analyze Profile"
+                )}
+              </Button>
+            </div>
 
             <div className="bg-gray-50 rounded-xl p-4 h-72">
               <div className="flex space-x-4 overflow-x-auto pb-2 scrollbar-hide items-start h-full pt-2">
@@ -275,6 +360,63 @@ export default function PickupLinesPage() {
               </Button>
             </div>
           </CardContent>
+
+          {/* Profile Analysis Results Section */}
+          {profileAnalysis && (
+            <CardContent className="py-3 border-t border-gray-100 flex-shrink-0">
+              <h3 className="text-lg font-semibold text-gray-900 mb-3">Profile Analysis Results</h3>
+              <div className="space-y-4">
+                {profileAnalysis.textContent && profileAnalysis.textContent.length > 0 && (
+                  <div className="bg-blue-50 p-3 rounded-lg">
+                    <h4 className="font-semibold text-blue-900 mb-2">Text Content (High Priority)</h4>
+                    <ul className="text-sm text-blue-800 space-y-1">
+                      {profileAnalysis.textContent.map((item: string, index: number) => (
+                        <li key={index} className="flex items-start">
+                          <span className="w-2 h-2 bg-blue-500 rounded-full mt-1.5 mr-2 flex-shrink-0"></span>
+                          {item}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                
+                {profileAnalysis.visualContent && profileAnalysis.visualContent.length > 0 && (
+                  <div className="bg-green-50 p-3 rounded-lg">
+                    <h4 className="font-semibold text-green-900 mb-2">Visual Content</h4>
+                    <ul className="text-sm text-green-800 space-y-1">
+                      {profileAnalysis.visualContent.map((item: string, index: number) => (
+                        <li key={index} className="flex items-start">
+                          <span className="w-2 h-2 bg-green-500 rounded-full mt-1.5 mr-2 flex-shrink-0"></span>
+                          {item}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                
+                {profileAnalysis.summary && (
+                  <div className="bg-purple-50 p-3 rounded-lg">
+                    <h4 className="font-semibold text-purple-900 mb-2">Summary</h4>
+                    <p className="text-sm text-purple-800">{profileAnalysis.summary}</p>
+                  </div>
+                )}
+                
+                {profileAnalysis.insights && profileAnalysis.insights.length > 0 && (
+                  <div className="bg-orange-50 p-3 rounded-lg">
+                    <h4 className="font-semibold text-orange-900 mb-2">Conversation Insights</h4>
+                    <ul className="text-sm text-orange-800 space-y-1">
+                      {profileAnalysis.insights.map((insight: string, index: number) => (
+                        <li key={index} className="flex items-start">
+                          <span className="w-2 h-2 bg-orange-500 rounded-full mt-1.5 mr-2 flex-shrink-0"></span>
+                          {insight}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          )}
 
           {/* Generated Replies Section */}
           {generatedReplies.length > 0 && (
