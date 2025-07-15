@@ -29,6 +29,7 @@ export default function PickupLinesPage() {
   const [regeneratingIndex, setRegeneratingIndex] = useState<number | null>(null)
   const [profileAnalysis, setProfileAnalysis] = useState<any>(null)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
+  const [showProfileAnalysis, setShowProfileAnalysis] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
 
@@ -111,14 +112,10 @@ export default function PickupLinesPage() {
 
       const result = await response.json()
       setProfileAnalysis(result)
+      setShowProfileAnalysis(true)
       
-      // Log analysis to console for terminal display
-      console.log('=== Profile Analysis Results ===')
-      console.log('Text Content:', result.textContent)
-      console.log('Visual Content:', result.visualContent)
-      console.log('Summary:', result.summary)
-      console.log('Insights:', result.insights)
-      console.log('================================')
+      // Save as intermediate results for pickup lines generation
+      // This data will be used as reference for generating personalized pickup lines
       
       toast({
         description: (
@@ -126,7 +123,7 @@ export default function PickupLinesPage() {
             <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
               <Check className="w-3 h-3 text-white" />
             </div>
-            <span className="text-gray-900 text-sm">Profile analyzed successfully! Check console for details.</span>
+            <span className="text-gray-900 text-sm">Profile analyzed successfully!</span>
           </div>
         ),
         duration: 3000,
@@ -175,18 +172,46 @@ export default function PickupLinesPage() {
       return
     }
 
+    if (!profileAnalysis) {
+      alert("Please analyze the profile first.")
+      return
+    }
+
     setIsGenerating(true)
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 2000))
+    setShowProfileAnalysis(false)
+    
+    try {
+      const response = await fetch('/api/generate-pickup-lines', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          summary: profileAnalysis.summary,
+          insights: profileAnalysis.insights,
+          tone: selectedTone,
+          matchName,
+          otherInfo
+        })
+      })
 
-    // 为每个位置随机选择一个回复
-    const newReplies = replyOptions.map((optionSet) => {
-      const randomIndex = Math.floor(Math.random() * optionSet.length)
-      return optionSet[randomIndex]
-    })
+      if (!response.ok) {
+        throw new Error('Failed to generate pickup lines')
+      }
 
-    setGeneratedReplies(newReplies)
-    setIsGenerating(false)
+      const result = await response.json()
+      setGeneratedReplies(result.pickupLines)
+    } catch (error) {
+      console.error('Error generating pickup lines:', error)
+      // Fallback to original replies if API fails
+      const newReplies = replyOptions.map((optionSet) => {
+        const randomIndex = Math.floor(Math.random() * optionSet.length)
+        return optionSet[randomIndex]
+      })
+      setGeneratedReplies(newReplies)
+    } finally {
+      setIsGenerating(false)
+    }
   }
 
   const copyToClipboard = (text: string) => {
@@ -321,6 +346,36 @@ export default function PickupLinesPage() {
             </div>
           </CardContent>
 
+          {/* Profile Analysis Results Section */}
+          {showProfileAnalysis && profileAnalysis && (
+            <CardContent className="py-3 border-t border-gray-100">
+              <div className="mb-3">
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">Profile Analysis Results</h3>
+                <div className="space-y-3">
+                  {profileAnalysis.summary && (
+                    <div className="bg-blue-50 rounded-xl p-3">
+                      <h4 className="text-sm font-medium text-blue-900 mb-2">Summary</h4>
+                      <p className="text-sm text-blue-800">{profileAnalysis.summary}</p>
+                    </div>
+                  )}
+                  {profileAnalysis.insights && profileAnalysis.insights.length > 0 && (
+                    <div className="bg-purple-50 rounded-xl p-3">
+                      <h4 className="text-sm font-medium text-purple-900 mb-2">Key Insights</h4>
+                      <ul className="text-sm text-purple-800 space-y-1">
+                        {profileAnalysis.insights.map((insight: string, index: number) => (
+                          <li key={index} className="flex items-start">
+                            <span className="text-purple-500 mr-2">•</span>
+                            <span>{insight}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          )}
+
           {/* Tone and Generate Section */}
           <CardContent className="py-3 border-t border-gray-100 flex-shrink-0">
             <div className="flex flex-col sm:flex-row items-center justify-between space-y-3 sm:space-y-0">
@@ -361,62 +416,6 @@ export default function PickupLinesPage() {
             </div>
           </CardContent>
 
-          {/* Profile Analysis Results Section */}
-          {profileAnalysis && (
-            <CardContent className="py-3 border-t border-gray-100 flex-shrink-0">
-              <h3 className="text-lg font-semibold text-gray-900 mb-3">Profile Analysis Results</h3>
-              <div className="space-y-4">
-                {profileAnalysis.textContent && profileAnalysis.textContent.length > 0 && (
-                  <div className="bg-blue-50 p-3 rounded-lg">
-                    <h4 className="font-semibold text-blue-900 mb-2">Text Content (High Priority)</h4>
-                    <ul className="text-sm text-blue-800 space-y-1">
-                      {profileAnalysis.textContent.map((item: string, index: number) => (
-                        <li key={index} className="flex items-start">
-                          <span className="w-2 h-2 bg-blue-500 rounded-full mt-1.5 mr-2 flex-shrink-0"></span>
-                          {item}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-                
-                {profileAnalysis.visualContent && profileAnalysis.visualContent.length > 0 && (
-                  <div className="bg-green-50 p-3 rounded-lg">
-                    <h4 className="font-semibold text-green-900 mb-2">Visual Content</h4>
-                    <ul className="text-sm text-green-800 space-y-1">
-                      {profileAnalysis.visualContent.map((item: string, index: number) => (
-                        <li key={index} className="flex items-start">
-                          <span className="w-2 h-2 bg-green-500 rounded-full mt-1.5 mr-2 flex-shrink-0"></span>
-                          {item}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-                
-                {profileAnalysis.summary && (
-                  <div className="bg-purple-50 p-3 rounded-lg">
-                    <h4 className="font-semibold text-purple-900 mb-2">Summary</h4>
-                    <p className="text-sm text-purple-800">{profileAnalysis.summary}</p>
-                  </div>
-                )}
-                
-                {profileAnalysis.insights && profileAnalysis.insights.length > 0 && (
-                  <div className="bg-orange-50 p-3 rounded-lg">
-                    <h4 className="font-semibold text-orange-900 mb-2">Conversation Insights</h4>
-                    <ul className="text-sm text-orange-800 space-y-1">
-                      {profileAnalysis.insights.map((insight: string, index: number) => (
-                        <li key={index} className="flex items-start">
-                          <span className="w-2 h-2 bg-orange-500 rounded-full mt-1.5 mr-2 flex-shrink-0"></span>
-                          {insight}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          )}
 
           {/* Generated Replies Section */}
           {generatedReplies.length > 0 && (
@@ -439,7 +438,6 @@ export default function PickupLinesPage() {
                         )}
                       </Button>
                       <MessageCircle className="w-4 h-4 text-purple-500" />
-                      <span className="text-xs font-medium text-gray-700">Reply {index + 1}</span>
                     </div>
                     <div className="flex-1 mx-3">
                       <p className="text-xs text-gray-900">{reply}</p>
