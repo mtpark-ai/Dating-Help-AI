@@ -2,6 +2,13 @@
 
 import type React from "react"
 
+import type { Metadata } from "next"
+
+export const metadata: Metadata = {
+  title: 'AI Dating Coach - Smart Conversation Assistant for Dating Apps | Dating Help AI',
+  description: 'Get instant AI-powered dating advice and conversation suggestions. Our Dating AI Coach helps you create engaging responses that increase matches and date invitations on Tinder, Bumble, and Hinge',
+}
+
 import { useState, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
