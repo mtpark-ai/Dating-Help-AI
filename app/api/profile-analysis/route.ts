@@ -1,11 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { analyzeProfile } from '@/services/profile-analysis'
-
-interface ProfileAnalysisRequest {
-  images: string[] // base64 encoded images
-  matchName?: string
-  otherInfo?: string
-}
+import { analyzeProfile } from '@/lib/profile-analysis'
+import type { ProfileAnalysisRequest } from '@/types'
 
 export async function POST(request: NextRequest) {
   try {

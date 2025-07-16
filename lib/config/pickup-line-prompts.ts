@@ -1,6 +1,3 @@
-// Expert Dating App Pickup Line Generation System
-// 作为顶级dating app专家，生成接近100分的搭讪话术
-
 export const EXPERT_PICKUP_LINE_SYSTEM_PROMPT = `
 你是世界顶级的dating app专家和心理学家，专门研究人际吸引力和第一印象建立。你的任务是根据crush的profile信息，生成能够获得高回复率的搭讪话术。
 
@@ -104,7 +101,7 @@ export const TONE_SPECIFIC_GUIDELINES = {
     techniques: ["Natural curiosity", "Shared experiences", "Friendly observations"],
     avoid: ["Too formal", "Overly enthusiastic", "Interview-style questions"]
   }
-};
+} as const;
 
 export const RESPONSE_QUALITY_CHECKLIST = [
   "✅ 基于profile的具体观察?",
@@ -116,3 +113,5 @@ export const RESPONSE_QUALITY_CHECKLIST = [
   "✅ 符合选择的tone?",
   "✅ 有记忆点或独特性?"
 ];
+
+export type PickupLineTone = keyof typeof TONE_SPECIFIC_GUIDELINES;

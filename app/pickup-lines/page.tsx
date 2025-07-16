@@ -12,6 +12,7 @@ import Image from "next/image"
 import Header from "@/components/header"
 import { useToast } from "@/hooks/use-toast"
 import { Toaster } from "@/components/ui/toaster"
+import { clientAPI } from "@/lib/client-api"
 
 interface UploadedImage {
   id: string
@@ -92,25 +93,12 @@ export default function PickupLinesPage() {
     
     try {
       const images = uploadedImages.map(img => img.preview)
-      const response = await fetch('/api/profile-analysis', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          images,
-          matchName,
-          otherInfo
-        })
+      const result = await clientAPI.analyzeProfile({
+        images,
+        matchName: matchName || undefined,
+        otherInfo: otherInfo || undefined
       })
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        console.error('API Error:', errorData)
-        throw new Error(errorData.details || 'Failed to analyze profile')
-      }
-
-      const result = await response.json()
+      
       setProfileAnalysis(result)
       setShowProfileAnalysis(true)
       
@@ -181,25 +169,14 @@ export default function PickupLinesPage() {
     setShowProfileAnalysis(false)
     
     try {
-      const response = await fetch('/api/generate-pickup-lines', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          summary: profileAnalysis.summary,
-          insights: profileAnalysis.insights,
-          tone: selectedTone,
-          matchName,
-          otherInfo
-        })
+      const result = await clientAPI.generatePickupLines({
+        summary: profileAnalysis.summary,
+        insights: profileAnalysis.insights,
+        tone: selectedTone,
+        matchName: matchName || undefined,
+        otherInfo: otherInfo || undefined
       })
-
-      if (!response.ok) {
-        throw new Error('Failed to generate pickup lines')
-      }
-
-      const result = await response.json()
+      
       setGeneratedReplies(result.pickupLines)
     } catch (error) {
       console.error('Error generating pickup lines:', error)

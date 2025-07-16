@@ -1,46 +1,14 @@
-import { STYLE_PROMPTS } from './config/prompts.js'
+import { STYLE_PROMPTS } from './config/conversation-prompts'
+import type { 
+  Message, 
+  GenerateReplyRequest, 
+  AnalyzeImageRequest, 
+  AnalyzeImageResponse,
+  AnalyzeAndGenerateRequest,
+  AnalyzeAndGenerateResponse,
+  OpenAIMessage
+} from '@/types'
 
-interface Message {
-  sender: "match" | "user"
-  message: string
-}
-
-interface GenerateReplyRequest {
-  conversation: Message[]
-  matchName?: string
-  otherInfo?: string
-  tone: string
-}
-
-interface AnalyzeImageRequest {
-  imageBase64: string
-  matchName?: string
-}
-
-interface AnalyzeImageResponse {
-  conversation: Message[]
-  success: boolean
-  error?: string
-}
-
-interface AnalyzeAndGenerateRequest {
-  imageBase64: string
-  matchName?: string
-  otherInfo?: string
-  tone: string
-}
-
-interface AnalyzeAndGenerateResponse {
-  conversation: Message[]
-  replies: string[]
-  success: boolean
-  error?: string
-}
-
-interface OpenAIMessage {
-  role: "system" | "user" | "assistant"
-  content: string
-}
 
 class GPTService {
   private apiKey: string
@@ -346,11 +314,3 @@ class GPTService {
 }
 
 export const gptService = new GPTService()
-export type { 
-  Message, 
-  GenerateReplyRequest, 
-  AnalyzeImageRequest, 
-  AnalyzeImageResponse,
-  AnalyzeAndGenerateRequest,
-  AnalyzeAndGenerateResponse
-}

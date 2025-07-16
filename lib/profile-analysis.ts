@@ -1,15 +1,4 @@
-interface ProfileAnalysisRequest {
-  images: string[] // base64 encoded images
-  matchName?: string
-  otherInfo?: string
-}
-
-interface ProfileAnalysisResponse {
-  textContent: string[]
-  visualContent: string[]
-  summary: string
-  insights: string[]
-}
+import type { ProfileAnalysisRequest, ProfileAnalysisResponse } from '@/types'
 
 export async function analyzeProfile(body: ProfileAnalysisRequest): Promise<ProfileAnalysisResponse> {
   console.log('Received request:', { imageCount: body.images.length, matchName: body.matchName, otherInfo: body.otherInfo })
@@ -99,12 +88,12 @@ Each insight should be specific enough to be directly used in opening lines, avo
     console.warn('Failed to parse JSON response, using fallback format')
     
     // Fallback: create structured response from text
-    const lines = content.split('\n').filter(line => line.trim())
+    const lines = content.split('\n').filter((line: string) => line.trim())
     analysisResult = {
-      textContent: lines.filter(line => line.includes('文字') || line.includes('标签') || line.includes('Text')).slice(0, 3),
-      visualContent: lines.filter(line => line.includes('视觉') || line.includes('照片') || line.includes('Visual')).slice(0, 3),
-      summary: lines.find(line => line.includes('总结') || line.includes('特点') || line.includes('Summary')) || content.substring(0, 200),
-      insights: lines.filter(line => line.includes('建议') || line.includes('话题') || line.includes('建议')).slice(0, 3)
+      textContent: lines.filter((line: string) => line.includes('文字') || line.includes('标签') || line.includes('Text')).slice(0, 3),
+      visualContent: lines.filter((line: string) => line.includes('视觉') || line.includes('照片') || line.includes('Visual')).slice(0, 3),
+      summary: lines.find((line: string) => line.includes('总结') || line.includes('特点') || line.includes('Summary')) || content.substring(0, 200),
+      insights: lines.filter((line: string) => line.includes('建议') || line.includes('话题') || line.includes('建议')).slice(0, 3)
     }
     
     // If still empty, provide fallback data

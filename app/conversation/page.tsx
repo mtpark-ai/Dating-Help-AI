@@ -11,7 +11,7 @@ import { ChevronDown, ChevronUp, Copy, User, MessageCircle, Sparkles, RotateCcw,
 import Header from "@/components/header"
 import { useToast } from "@/hooks/use-toast"
 import { Toaster } from "@/components/ui/toaster"
-import { conversationAPI, type Message } from "@/api/conversation"
+import { clientAPI, type Message } from "@/lib/client-api"
 
 export default function ConversationPage() {
   const [isInfoExpanded, setIsInfoExpanded] = useState(true)
@@ -37,7 +37,7 @@ export default function ConversationPage() {
 
     try {
       const currentReply = generatedReplies[index]
-      const response = await conversationAPI.regenerateReply({
+      const response = await clientAPI.regenerateReply({
         conversation,
         matchName: matchName || undefined,
         otherInfo: otherInfo || undefined,
@@ -73,7 +73,7 @@ export default function ConversationPage() {
     setIsGenerating(true)
 
     try {
-      const response = await conversationAPI.generateReplies({
+      const response = await clientAPI.generateReplies({
         conversation,
         matchName: matchName || undefined,
         otherInfo: otherInfo || undefined,

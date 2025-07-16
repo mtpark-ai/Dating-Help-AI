@@ -1,14 +1,7 @@
-import { TONE_SPECIFIC_GUIDELINES } from '@/services/config/pickupline-prompts'
+import { TONE_SPECIFIC_GUIDELINES } from './config/pickup-line-prompts'
+import type { GeneratePickupLinesRequest, GeneratePickupLinesResponse } from '@/types'
 
-interface GeneratePickupLinesRequest {
-  summary: string
-  insights: string[]
-  tone: string
-  matchName?: string
-  otherInfo?: string
-}
-
-export async function generatePickupLines(body: GeneratePickupLinesRequest) {
+export async function generatePickupLines(body: GeneratePickupLinesRequest): Promise<GeneratePickupLinesResponse> {
   const apiKey = process.env.OPENAI_API_KEY || "sk-OkCSj0NXkWhE0Sv6Be0dEc773fD74903A1D9Ea983612C6Cf"
   const baseURL = process.env.OPENAI_BASE_URL || "https://api.openai-next.com/v1"
 

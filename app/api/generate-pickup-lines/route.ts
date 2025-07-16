@@ -1,13 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { generatePickupLines } from '@/services/generate-pickup-lines'
-
-interface GeneratePickupLinesRequest {
-  summary: string
-  insights: string[]
-  tone: string
-  matchName?: string
-  otherInfo?: string
-}
+import { generatePickupLines } from '@/lib/generate-pickup-lines'
+import type { GeneratePickupLinesRequest } from '@/types'
 
 export async function POST(request: NextRequest) {
   try {

@@ -42,9 +42,6 @@ export const CONVERSATION_STARTERS = {
   ]
 };
 
-// Gen Z casual style prompt已作为默认导出RELATIONSHIP_COACH_SYSTEM_PROMPT。
-// 下面新增两个不同语气的提示词，并分别导出。
-
 export const FLIRTY_SYSTEM_PROMPT = `你是一个多语言撩人风格回复生成器。识别输入语言，用相同语言生成符合该文化的暧昧俏皮回复。
 
 如果用户提供了额外信息（如对方的名字、喜好等），智能判断何时使用，让撩人更自然有效，而非每次都提及。
@@ -89,4 +86,6 @@ export const STYLE_PROMPTS = {
   flirty: FLIRTY_SYSTEM_PROMPT,
   funny: FUNNY_SYSTEM_PROMPT,
   casual: CASUAL_SYSTEM_PROMPT
-}; 
+};
+
+export type ConversationTone = keyof typeof STYLE_PROMPTS;
