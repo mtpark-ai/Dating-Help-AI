@@ -42,7 +42,7 @@ export default function Header() {
             href="/pickup-lines"
             className="text-gray-700 hover:text-purple-600 transition-colors duration-200 font-medium whitespace-nowrap"
           >
-            Smart Icebreakers
+            AI Pickup Lines
           </Link>
           <div className="relative group">
             <span className="text-gray-400 cursor-default font-medium whitespace-nowrap">Dating Profile Review</span>

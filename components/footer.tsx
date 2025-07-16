@@ -96,7 +96,7 @@ export default function Footer() {
                   href="/pickup-lines"
                   className="text-gray-600 hover:text-purple-600 transition-colors duration-200"
                 >
-                  Smart Icebreakers
+                  AI Pickup Lines
                 </Link>
               </li>
               <li className="relative group">

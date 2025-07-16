@@ -72,7 +72,7 @@ export const EXPERT_PICKUP_LINE_SYSTEM_PROMPT = `
 - **原创性** (15分): 是否避免了cliché和模板化
 
 ## 输出格式:
-为每个tone生成3条不同风格的pickup lines:
+为每个tone生成3条不同风格的AI pickup lines:
 1. **智慧幽默型**: 展现wit和观察力
 2. **真诚好奇型**: 展现genuine interest
 3. **轻松玩笑型**: 展现playful personality
@@ -80,7 +80,7 @@ export const EXPERT_PICKUP_LINE_SYSTEM_PROMPT = `
 # 实战案例模板
 
 输入: [Profile analysis with textContent, visualContent, summary, insights]
-输出: 根据分析生成的3条高质量pickup lines
+输出: 根据分析生成的3条高质量AI pickup lines
 
 记住: 你的目标是创造让人想要回复的第一句话，不是完美的文学作品。Focus on CONVERSATION STARTER, not impressive writing.
 `;

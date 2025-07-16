@@ -1,7 +1,7 @@
 import type { ProfileAnalysisRequest, ProfileAnalysisResponse } from '@/types'
 
 export async function analyzeProfile(body: ProfileAnalysisRequest): Promise<ProfileAnalysisResponse> {
-  console.log('Received request:', { imageCount: body.images.length, matchName: body.matchName, otherInfo: body.otherInfo })
+  console.log('Received request:', { imageCount: body.photos.length, matchName: body.matchName, otherInfo: body.otherInfo })
   
   const apiKey = process.env.OPENAI_API_KEY || "sk-OkCSj0NXkWhE0Sv6Be0dEc773fD74903A1D9Ea983612C6Cf"
   const baseURL = process.env.OPENAI_BASE_URL || "https://api.openai-next.com/v1"
@@ -37,7 +37,7 @@ Each insight should be specific enough to be directly used in opening lines, avo
           type: "text",
           text: analysisPrompt
         },
-        ...body.images.map(image => ({
+        ...body.photos.map(image => ({
           type: "image_url",
           image_url: {
             url: image

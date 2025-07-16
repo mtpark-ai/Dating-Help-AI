@@ -26,7 +26,8 @@ export interface RegenerateReplyResponse {
 }
 
 export interface ProfileAnalysisRequest {
-  images: string[] // base64 encoded images
+  bio: string
+  photos: string[] // base64 encoded images
   matchName?: string
   otherInfo?: string
 }

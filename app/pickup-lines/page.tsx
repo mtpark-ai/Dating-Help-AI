@@ -92,9 +92,10 @@ export default function PickupLinesPage() {
     setIsAnalyzing(true)
     
     try {
-      const images = uploadedImages.map(img => img.preview)
+      const photos = uploadedImages.map(img => img.preview)
       const result = await clientAPI.analyzeProfile({
-        images,
+        bio: otherInfo || "No additional information provided",
+        photos,
         matchName: matchName || undefined,
         otherInfo: otherInfo || undefined
       })

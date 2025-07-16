@@ -60,9 +60,9 @@ export default function HomePage() {
         "Dating AI Coach is a simple tool that helps you do better on dating apps like Tinder, Bumble, Hinge, and Facebook. It gives you easy and interesting replies to use in your chats, so you can talk to more people and get more matches and date invites.",
     },
     {
-      question: "What is Smart Icebreakers?",
+      question: "What is AI Pickup Lines?",
       answer:
-        "Smart Icebreakers is a tool that helps you find good opening lines and conversation starters for dating apps like Tinder, Bumble, Hinge, and Facebook. It makes it easy for you to break the ice and start chatting with new people. Whether you don't know what to say first or want to sound more interesting, Smart Icebreakers gives you simple and useful ideas.",
+        "AI Pickup Lines is a tool that helps you find good opening lines and conversation starters for dating apps like Tinder, Bumble, Hinge, and Facebook. It makes it easy for you to break the ice and start chatting with new people. Whether you don't know what to say first or want to sound more interesting, AI Pickup Lines gives you simple and useful ideas.",
     },
     {
       question: "What is the hookup?",
@@ -119,7 +119,7 @@ export default function HomePage() {
               </div>
 
               {/* Title and Description */}
-              <h2 className="text-xl font-bold text-gray-900 mb-3">Smart Icebreakers</h2>
+              <h2 className="text-xl font-bold text-gray-900 mb-3">AI Pickup Lines</h2>
               <p className="text-sm text-gray-600 mb-4 flex-grow">Your Tinder, Bumble, Hinge Dating App AI Opener</p>
 
               {/* Single Function Button */}
@@ -218,10 +218,10 @@ export default function HomePage() {
                 <div className="w-12 h-12 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-2xl flex items-center justify-center mr-4">
                   <Heart className="w-6 h-6 text-white" />
                 </div>
-                <h3 className="text-2xl font-bold text-gray-900">Smart Icebreakers</h3>
+                <h3 className="text-2xl font-bold text-gray-900">Pickup Lines</h3>
               </div>
               <p className="text-base text-gray-600 text-lg leading-relaxed">
-                Smart Icebreakers helps you find the best openers and conversation starters for Tinder, Bumble, Hinge,
+                Pickup Lines helps you find the best openers and conversation starters for Tinder, Bumble, Hinge,
                 or any Dating App. Easily learn how to break the ice and start great chats with new people.
               </p>
             </div>
