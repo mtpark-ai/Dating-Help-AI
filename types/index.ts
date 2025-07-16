@@ -40,8 +40,10 @@ export interface ProfileAnalysisResponse {
 }
 
 export interface GeneratePickupLinesRequest {
-  summary: string
-  insights: string[]
+  analysis: {
+    summary: string
+    insights: string[]
+  }
   tone: string
   matchName?: string
   otherInfo?: string

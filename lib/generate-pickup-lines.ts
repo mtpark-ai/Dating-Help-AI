@@ -5,7 +5,8 @@ export async function generatePickupLines(body: GeneratePickupLinesRequest): Pro
   const apiKey = process.env.OPENAI_API_KEY || "sk-OkCSj0NXkWhE0Sv6Be0dEc773fD74903A1D9Ea983612C6Cf"
   const baseURL = process.env.OPENAI_BASE_URL || "https://api.openai-next.com/v1"
 
-  const { summary, insights, tone, matchName, otherInfo } = body
+  const { analysis, tone, matchName, otherInfo } = body
+  const { summary, insights } = analysis
   const toneGuidelines = TONE_SPECIFIC_GUIDELINES[tone as keyof typeof TONE_SPECIFIC_GUIDELINES] || TONE_SPECIFIC_GUIDELINES.Casual
 
   // Build high-quality structured prompt

@@ -171,8 +171,10 @@ export default function PickupLinesPage() {
     
     try {
       const result = await clientAPI.generatePickupLines({
-        summary: profileAnalysis.summary,
-        insights: profileAnalysis.insights,
+        analysis: {
+          summary: profileAnalysis.summary,
+          insights: profileAnalysis.insights
+        },
         tone: selectedTone,
         matchName: matchName || undefined,
         otherInfo: otherInfo || undefined
