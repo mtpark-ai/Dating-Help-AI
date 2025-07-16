@@ -12,6 +12,31 @@ interface GenerateReplyRequest {
   tone: string
 }
 
+interface AnalyzeImageRequest {
+  imageBase64: string
+  matchName?: string
+}
+
+interface AnalyzeImageResponse {
+  conversation: Message[]
+  success: boolean
+  error?: string
+}
+
+interface AnalyzeAndGenerateRequest {
+  imageBase64: string
+  matchName?: string
+  otherInfo?: string
+  tone: string
+}
+
+interface AnalyzeAndGenerateResponse {
+  conversation: Message[]
+  replies: string[]
+  success: boolean
+  error?: string
+}
+
 interface OpenAIMessage {
   role: "system" | "user" | "assistant"
   content: string
@@ -154,7 +179,178 @@ class GPTService {
       throw error
     }
   }
+
+  async analyzeScreenshot(request: AnalyzeImageRequest): Promise<AnalyzeImageResponse> {
+    const systemPrompt = `你是一个专业的聊天记录分析师。请分析提供的聊天截图，提取所有对话文本信息。
+
+任务要求：
+1. 仔细观察聊天界面的左右布局、颜色、头像位置等特征
+2. 区分哪些是对方（Match）的消息，哪些是我的消息
+3. 按照时间顺序整理所有对话内容
+4. 输出格式为JSON数组，包含sender和message字段
+5. sender字段只能是"match"或"user"
+
+输出格式示例：
+[
+  {"sender": "match", "message": "消息内容"},
+  {"sender": "user", "message": "消息内容"}
+]
+
+注意事项：
+- 仔细识别文本内容，包括表情符号和特殊字符
+- 确保消息的时间顺序正确
+- 不要遗漏任何对话内容
+- 只返回JSON数组，不要其他解释文字`
+
+    try {
+      const response = await fetch(`${this.baseURL}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.apiKey}`
+        },
+        body: JSON.stringify({
+          model: "chatgpt-4o-latest",
+          messages: [
+            { role: "system", content: systemPrompt },
+            { 
+              role: "user", 
+              content: [
+                {
+                  type: "text",
+                  text: "请分析这个聊天截图，提取所有对话信息并按要求格式输出："
+                },
+                {
+                  type: "image_url",
+                  image_url: {
+                    url: `data:image/jpeg;base64,${request.imageBase64}`
+                  }
+                }
+              ]
+            }
+          ],
+          temperature: 0.1,
+          max_tokens: 1000
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error(`OpenAI API error: ${response.status} ${response.statusText}`)
+      }
+
+      const data = await response.json()
+      const content = data.choices[0]?.message?.content || ""
+      
+      try {
+        // 提取JSON部分
+        const jsonMatch = content.match(/\[[\s\S]*\]/)
+        if (!jsonMatch) {
+          throw new Error("无法解析对话内容")
+        }
+        
+        const conversation = JSON.parse(jsonMatch[0])
+        
+        // 验证数据格式
+        if (!Array.isArray(conversation)) {
+          throw new Error("对话数据格式不正确")
+        }
+        
+        const validatedConversation: Message[] = conversation.map((item: any) => {
+          if (!item.sender || !item.message) {
+            throw new Error("消息格式不完整")
+          }
+          if (item.sender !== "match" && item.sender !== "user") {
+            throw new Error("sender字段只能是match或user")
+          }
+          return {
+            sender: item.sender,
+            message: item.message.trim()
+          }
+        })
+        
+        return {
+          conversation: validatedConversation,
+          success: true
+        }
+        
+      } catch (parseError) {
+        console.error('解析对话内容失败:', parseError)
+        return {
+          conversation: [],
+          success: false,
+          error: "解析对话内容失败，请确保截图清晰且包含聊天对话"
+        }
+      }
+      
+    } catch (error) {
+      console.error('Screenshot Analysis Error:', error)
+      return {
+        conversation: [],
+        success: false,
+        error: "分析截图失败，请重试"
+      }
+    }
+  }
+
+  async analyzeScreenshotAndGenerate(request: AnalyzeAndGenerateRequest): Promise<AnalyzeAndGenerateResponse> {
+    try {
+      // 首先分析截图提取对话
+      const analyzeResult = await this.analyzeScreenshot({
+        imageBase64: request.imageBase64,
+        matchName: request.matchName
+      })
+
+      if (!analyzeResult.success) {
+        return {
+          conversation: [],
+          replies: [],
+          success: false,
+          error: analyzeResult.error
+        }
+      }
+
+      // 如果没有对话内容，返回错误
+      if (analyzeResult.conversation.length === 0) {
+        return {
+          conversation: [],
+          replies: [],
+          success: false,
+          error: "未能从截图中提取到有效的对话内容"
+        }
+      }
+
+      // 基于提取的对话生成回复
+      const replyResult = await this.generateReplies({
+        conversation: analyzeResult.conversation,
+        matchName: request.matchName,
+        otherInfo: request.otherInfo,
+        tone: request.tone
+      })
+
+      return {
+        conversation: analyzeResult.conversation,
+        replies: replyResult,
+        success: true
+      }
+
+    } catch (error) {
+      console.error('Analyze and Generate Error:', error)
+      return {
+        conversation: [],
+        replies: [],
+        success: false,
+        error: "分析截图并生成回复失败，请重试"
+      }
+    }
+  }
 }
 
 export const gptService = new GPTService()
-export type { Message, GenerateReplyRequest }
+export type { 
+  Message, 
+  GenerateReplyRequest, 
+  AnalyzeImageRequest, 
+  AnalyzeImageResponse,
+  AnalyzeAndGenerateRequest,
+  AnalyzeAndGenerateResponse
+}

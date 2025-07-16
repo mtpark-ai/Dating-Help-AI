@@ -24,7 +24,7 @@ export default function Header() {
             </span>
             <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-20 min-w-48">
               <Link
-                href="/upload"
+                href="/upload-screenshot"
                 className="block px-4 py-3 text-sm text-gray-700 hover:bg-purple-50 hover:text-purple-600 transition-colors duration-200 border-b border-gray-100"
               >
                 Upload Screenshot

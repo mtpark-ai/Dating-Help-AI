@@ -79,7 +79,7 @@ export default function Footer() {
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Products</h3>
             <ul className="space-y-3">
               <li>
-                <Link href="/upload" className="text-gray-600 hover:text-purple-600 transition-colors duration-200">
+                <Link href="/upload-screenshot" className="text-gray-600 hover:text-purple-600 transition-colors duration-200">
                   Upload Screenshot
                 </Link>
               </li>

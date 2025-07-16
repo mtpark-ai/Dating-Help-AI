@@ -153,9 +153,9 @@ export default function HomePage() {
 
               {/* Two Function Buttons */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-auto">
-                <Link href="/upload">
+                <Link href="/upload-screenshot">
                   <Button className="w-full bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white font-semibold py-2 px-3 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 text-sm">
-                    Upload Files
+                    Upload Screenshot
                   </Button>
                 </Link>
 
