@@ -104,12 +104,12 @@ class ProfileAnalysisAPI {
       }
 
       // Fallback: create structured response from text
-      const lines = content.split('\n').filter(line => line.trim())
+      const lines = content.split('\n').filter((line: string) => line.trim())
       return {
-        textContent: lines.filter(line => line.includes('文字') || line.includes('标签')).slice(0, 3),
-        visualContent: lines.filter(line => line.includes('视觉') || line.includes('照片')).slice(0, 3),
-        summary: lines.find(line => line.includes('总结') || line.includes('特点')) || content.substring(0, 200),
-        insights: lines.filter(line => line.includes('建议') || line.includes('话题')).slice(0, 3)
+        textContent: lines.filter((line: string) => line.includes('文字') || line.includes('标签')).slice(0, 3),
+        visualContent: lines.filter((line: string) => line.includes('视觉') || line.includes('照片')).slice(0, 3),
+        summary: lines.find((line: string) => line.includes('总结') || line.includes('特点')) || content.substring(0, 200),
+        insights: lines.filter((line: string) => line.includes('建议') || line.includes('话题')).slice(0, 3)
       }
     } catch (error) {
       console.error('Profile Analysis Error:', error)
