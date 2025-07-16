@@ -1,12 +1,6 @@
 "use client"
 
 import type React from "react"
-import type { Metadata } from "next"
-
-export const metadata: Metadata = {
-  title: 'AI Pickup Lines Generator - Best Openers for Dating Apps | Dating Help AI',
-  description: 'Generate creative pickup lines and conversation starters for Tinder, Bumble, and Hinge. Break the ice effortlessly with AI-powered openers',
-}
 
 import { useState, useRef } from "react"
 import { Button } from "@/components/ui/button"

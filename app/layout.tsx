@@ -7,6 +7,28 @@ export const metadata: Metadata = {
   description: 'Boost your dating app success with Dating Help AI. Get AI-powered conversation assistance, pickup lines, profile reviews, and photo optimization for Tinder, Bumble, Hinge & more. Try free today!',
   keywords: 'dating help ai, ai dating coach, tinder ai, bumble ai, hinge ai, dating app assistant, ai pickup lines, dating profile review, dating conversation help, online dating success',
   generator: 'Dating Help AI',
+  openGraph: {
+    title: 'Dating Help AI - Your AI Dating Coach for Tinder, Bumble & Hinge Success',
+    description: 'Boost your dating app success with Dating Help AI. Get AI-powered conversation assistance, pickup lines, profile reviews, and photo optimization for Tinder, Bumble, Hinge & more. Try free today!',
+    type: 'website',
+    siteName: 'Dating Help AI',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Dating Help AI - Your AI Dating Coach for Tinder, Bumble & Hinge Success',
+    description: 'Boost your dating app success with Dating Help AI. Get AI-powered conversation assistance, pickup lines, profile reviews, and photo optimization for Tinder, Bumble, Hinge & more. Try free today!',
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-video-preview': -1,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+    },
+  },
 }
 
 export default function RootLayout({
