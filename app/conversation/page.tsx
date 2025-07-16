@@ -11,9 +11,10 @@ import { ChevronDown, ChevronUp, Copy, User, MessageCircle, Sparkles, RotateCcw,
 import Header from "@/components/header"
 import { useToast } from "@/hooks/use-toast"
 import { Toaster } from "@/components/ui/toaster"
-import { clientAPI, type Message } from "@/lib/client-api"
+import { clientAPI, type Message, ClientAPIError } from "@/lib/client-api"
+import { ErrorBoundary, useErrorHandler } from "@/components/error-boundary"
 
-export default function ConversationPage() {
+function ConversationPageContent() {
   const [isInfoExpanded, setIsInfoExpanded] = useState(true)
   const [selectedTone, setSelectedTone] = useState("Flirty")
   const [matchName, setMatchName] = useState("")
@@ -24,6 +25,7 @@ export default function ConversationPage() {
   const [newMessage, setNewMessage] = useState("")
   const [messageType, setMessageType] = useState<"match" | "user">("match")
   const { toast } = useToast()
+  const { handleError } = useErrorHandler()
 
   const tones = ["Flirty", "Funny", "Casual"]
 
@@ -51,8 +53,33 @@ export default function ConversationPage() {
       setGeneratedReplies(newReplies)
     } catch (error) {
       console.error('Failed to regenerate reply:', error)
+      
+      let errorMessage = "Failed to regenerate reply. Please try again."
+      
+      if (error instanceof ClientAPIError) {
+        switch (error.code) {
+          case 'TIMEOUT_ERROR':
+            errorMessage = "Request timed out. Please try again."
+            break
+          case 'NETWORK_ERROR':
+            errorMessage = "Network error. Please check your connection."
+            break
+          case 'VALIDATION_ERROR':
+            errorMessage = "Invalid request. Please check your input."
+            break
+          case 'GPT_SERVICE_ERROR':
+            errorMessage = "AI service is temporarily unavailable. Please try again."
+            break
+          default:
+            errorMessage = error.message || errorMessage
+        }
+      } else if (error instanceof Error) {
+        handleError(error)
+        return
+      }
+      
       toast({
-        description: "Failed to regenerate reply. Please try again.",
+        description: errorMessage,
         duration: 3000,
         className: "fixed bottom-4 right-4 bg-red-50 border border-red-200 shadow-lg rounded-lg p-3 w-auto max-w-[280px]",
       })
@@ -83,8 +110,33 @@ export default function ConversationPage() {
       setGeneratedReplies(response.replies)
     } catch (error) {
       console.error('Failed to generate replies:', error)
+      
+      let errorMessage = "Failed to generate replies. Please try again."
+      
+      if (error instanceof ClientAPIError) {
+        switch (error.code) {
+          case 'TIMEOUT_ERROR':
+            errorMessage = "Request timed out. Please try again."
+            break
+          case 'NETWORK_ERROR':
+            errorMessage = "Network error. Please check your connection."
+            break
+          case 'VALIDATION_ERROR':
+            errorMessage = "Invalid request. Please check your conversation."
+            break
+          case 'GPT_SERVICE_ERROR':
+            errorMessage = "AI service is temporarily unavailable. Please try again."
+            break
+          default:
+            errorMessage = error.message || errorMessage
+        }
+      } else if (error instanceof Error) {
+        handleError(error)
+        return
+      }
+      
       toast({
-        description: "Failed to generate replies. Please try again.",
+        description: errorMessage,
         duration: 3000,
         className: "fixed bottom-4 right-4 bg-red-50 border border-red-200 shadow-lg rounded-lg p-3 w-auto max-w-[280px]",
       })
@@ -384,5 +436,13 @@ export default function ConversationPage() {
       </div>
       <Toaster />
     </div>
+  )
+}
+
+export default function ConversationPage() {
+  return (
+    <ErrorBoundary>
+      <ConversationPageContent />
+    </ErrorBoundary>
   )
 }

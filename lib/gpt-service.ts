@@ -1,4 +1,6 @@
 import { STYLE_PROMPTS } from './config/conversation-prompts'
+import { GPTServiceError, ExternalServiceError, ParsingError, withRetry } from './error-handler'
+import { logger } from './logger'
 import type { 
   Message, 
   GenerateReplyRequest, 
@@ -44,6 +46,13 @@ class GPTService {
   }
 
   async generateReplies(request: GenerateReplyRequest): Promise<string[]> {
+    logger.debug('Generating replies with GPT service', {
+      conversationLength: request.conversation.length,
+      tone: request.tone,
+      hasMatchName: !!request.matchName,
+      hasOtherInfo: !!request.otherInfo
+    })
+
     const systemPrompt = this.buildSystemPrompt(request.tone, request.matchName, request.otherInfo)
     const conversationMessages = this.formatConversationForGPT(request.conversation)
 
@@ -65,41 +74,77 @@ class GPTService {
       { role: "user", content: "请为我生成3个高情商、有魅力的回复选项，要求简短自然，符合当前对话语境和关系发展阶段。每个回复用换行分隔。" }
     ]
 
-    try {
-      const response = await fetch(`${this.baseURL}/chat/completions`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.apiKey}`
-        },
-        body: JSON.stringify({
-          model: "chatgpt-4o-latest",
-          messages: messages,
-          temperature: 0.8,
-          max_tokens: 150
+    return withRetry(async () => {
+      try {
+        const response = await fetch(`${this.baseURL}/chat/completions`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${this.apiKey}`
+          },
+          body: JSON.stringify({
+            model: "chatgpt-4o-latest",
+            messages: messages,
+            temperature: 0.8,
+            max_tokens: 150
+          })
         })
-      })
 
-      if (!response.ok) {
-        throw new Error(`OpenAI API error: ${response.status} ${response.statusText}`)
+        if (!response.ok) {
+          const errorText = await response.text()
+          logger.error('OpenAI API error response', undefined, {
+            status: response.status,
+            statusText: response.statusText,
+            responseBody: errorText
+          })
+          throw new GPTServiceError(
+            `OpenAI API error: ${response.status} ${response.statusText}`,
+            { status: response.status, responseBody: errorText }
+          )
+        }
+
+        const data = await response.json()
+        
+        if (!data.choices || !data.choices[0] || !data.choices[0].message) {
+          throw new GPTServiceError('Invalid response format from OpenAI API', { response: data })
+        }
+
+        const content = data.choices[0].message.content || ""
+        
+        if (!content.trim()) {
+          throw new GPTServiceError('Empty response from OpenAI API', { response: data })
+        }
+        
+        // Split the response into multiple replies
+        const replies = content.split('\n').filter((reply: string) => reply.trim().length > 0).slice(0, 3)
+        
+        // If we don't get enough replies, pad with variations
+        while (replies.length < 3) {
+          replies.push(replies[0] || "That sounds interesting!")
+        }
+
+        logger.debug('Successfully generated replies', {
+          repliesCount: replies.length,
+          totalLength: replies.join('').length
+        })
+
+        return replies
+      } catch (error) {
+        if (error instanceof GPTServiceError) {
+          throw error
+        }
+        
+        logger.error('GPT Service Error in generateReplies', error as Error, {
+          conversationLength: request.conversation.length,
+          tone: request.tone
+        })
+        
+        throw new GPTServiceError(
+          'Failed to generate replies from GPT service',
+          { originalError: error instanceof Error ? error.message : String(error) }
+        )
       }
-
-      const data = await response.json()
-      const content = data.choices[0]?.message?.content || ""
-      
-      // Split the response into multiple replies
-      const replies = content.split('\n').filter((reply: string) => reply.trim().length > 0).slice(0, 3)
-      
-      // If we don't get enough replies, pad with variations
-      while (replies.length < 3) {
-        replies.push(replies[0] || "That sounds interesting!")
-      }
-
-      return replies
-    } catch (error) {
-      console.error('GPT Service Error:', error)
-      throw error
-    }
+    }, 3, 1000)
   }
 
   async regenerateReply(request: GenerateReplyRequest & { currentReply: string }): Promise<string> {
