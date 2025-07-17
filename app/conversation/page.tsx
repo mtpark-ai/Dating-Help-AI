@@ -2,12 +2,12 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useRef, useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { ChevronDown, ChevronUp, Copy, User, MessageCircle, Sparkles, RotateCcw, Check, Send } from "lucide-react"
+import { ChevronDown, ChevronUp, Copy, User, MessageCircle, Sparkles, RotateCcw, Check, Send, X } from "lucide-react"
 import Header from "@/components/header"
 import { useToast } from "@/hooks/use-toast"
 import { Toaster } from "@/components/ui/toaster"
@@ -30,6 +30,14 @@ function ConversationPageContent() {
   const tones = ["Flirty", "Funny", "Casual"]
 
   const [conversation, setConversation] = useState<Message[]>([])
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const messagesContainerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight
+    }
+  }, [conversation])
 
 
   const handleRegenerateReply = async (index: number) => {
@@ -225,10 +233,10 @@ function ConversationPageContent() {
                     </div>
                   </label>
                   <Input
-                    placeholder="Default"
+                    placeholder="Match's name (optional)"
                     value={matchName}
                     onChange={(e) => setMatchName(e.target.value)}
-                    className="rounded-xl border-gray-200 focus:ring-0 focus:border-gray-200 h-10 text-sm"
+                    className="rounded-xl border-gray-300 focus:border-gray-400"
                   />
                 </div>
                 <div className="col-span-8">
@@ -242,10 +250,10 @@ function ConversationPageContent() {
                     </div>
                   </label>
                   <Input
-                    placeholder="Entering additional information about dating allows us to understand her/him better."
+                    placeholder="Other information (optional)"
                     value={otherInfo}
                     onChange={(e) => setOtherInfo(e.target.value)}
-                    className="rounded-xl border-gray-200 focus:ring-0 focus:border-gray-200 h-10 text-sm"
+                    className="rounded-xl border-gray-300 focus:border-gray-400"
                   />
                 </div>
               </div>
@@ -266,7 +274,7 @@ function ConversationPageContent() {
               </Button>
             </div>
 
-            <div className="space-y-2 mb-4 overflow-y-auto h-36">
+            <div ref={messagesContainerRef} className="space-y-2 mb-4 overflow-y-auto overflow-x-visible h-36">
               {conversation.length === 0 ? (
                 <div className="flex items-center justify-center h-full text-gray-500 text-sm">
                   No messages yet. Add your first message below.
@@ -275,9 +283,9 @@ function ConversationPageContent() {
                 conversation.map((msg, index) => (
                   <div
                     key={index}
-                    className={`flex items-start space-x-2 ${
+                    className={`relative group flex items-start space-x-2 ${
                       msg.sender === "user" ? "flex-row-reverse space-x-reverse" : ""
-                    }`}
+                    } ${index === 0 ? "mt-3" : ""}`}
                   >
                     <div
                       className={`w-8 h-8 rounded-full flex items-center justify-center ${
@@ -291,13 +299,22 @@ function ConversationPageContent() {
                       )}
                     </div>
                     <div
-                      className={`max-w-xs lg:max-w-md px-3 py-2 rounded-2xl ${
+                      className={`max-w-xs lg:max-w-md px-3 py-2 rounded-2xl overflow-visible ${
                         msg.sender === "user"
                           ? "bg-gradient-to-r from-purple-500 to-indigo-500 text-white"
                           : "bg-gray-200 text-gray-900"
-                      }`}
+                      } relative`}
                     >
                       <p className="text-xs">{msg.message}</p>
+                      <button
+                        type="button"
+                        className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-red-500 hover:bg-red-600 text-white rounded-full w-5 h-5 flex items-center justify-center z-10 shadow-md"
+                        onClick={() => setConversation(prev => prev.filter((_, i) => i !== index))}
+                        tabIndex={0}
+                        aria-label="Delete message"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
                     </div>
                   </div>
                 ))
@@ -333,21 +350,25 @@ function ConversationPageContent() {
                 </Button>
               </div>
               <div className="flex items-center space-x-2">
-                <Input
-                  placeholder={`Type ${messageType === "match" ? "match's" : "your"} message...`}
-                  value={newMessage}
-                  onChange={(e) => setNewMessage(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  className="flex-1 rounded-xl border-gray-200 focus:ring-0 focus:border-gray-200 focus:outline-none h-10 text-sm"
-                />
-                <Button
-                  onClick={handleAddMessage}
-                  disabled={newMessage.trim() === ""}
-                  size="sm"
-                  className="bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white px-3 py-2 rounded-xl"
-                >
-                  <Send className="w-4 h-4" />
-                </Button>
+                <div className="relative flex-1">
+                  <Input
+                    placeholder={`Type ${messageType === "match" ? "match's" : "your"} message...`}
+                    value={newMessage}
+                    onChange={(e) => setNewMessage(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    className="rounded-xl border-gray-200 focus:ring-0 focus:border-gray-200 focus:outline-none h-10 text-sm pr-12"
+                  />
+                  <Button
+                    onClick={handleAddMessage}
+                    disabled={newMessage.trim() === ""}
+                    size="sm"
+                    className="absolute right-1 top-1/2 -translate-y-1/2 bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white px-3 py-2 rounded-xl h-8 min-w-8 flex items-center justify-center shadow-none"
+                    tabIndex={0}
+                    type="button"
+                  >
+                    <Send className="w-4 h-4" />
+                  </Button>
+                </div>
               </div>
             </div>
           </CardContent>

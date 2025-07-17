@@ -8,14 +8,6 @@ export async function analyzeProfile(body: ProfileAnalysisRequest): Promise<Prof
 
   const analysisPrompt = `You are a professional dating app profile analyst. Carefully analyze these profile images and extract conversation-relevant information.
 
-**PRIORITY: TEXT ANALYSIS OVER IMAGE ANALYSIS**
-Focus primarily on extracting and analyzing any text content from images, then supplement with visual observations.
-
-${body.bio && body.bio !== "No additional information provided" ? `**ADDITIONAL BIO TEXT PROVIDED:**
-"${body.bio}"
-This bio information should be given HIGHEST priority in your analysis.
-` : ''}
-
 Output in strict JSON format:
 {
   "textContent": ["extracted text from images (interests, work, hobbies, etc.)"],
@@ -24,29 +16,18 @@ Output in strict JSON format:
   "insights": ["specific conversation starters for personalized pickup lines"]
 }
 
-Analysis Focus (in order of priority):
-1. **textContent** (HIGHEST PRIORITY): Extract bio text, tags, profession, interests, and other conversation-relevant text. Look for:
-   - PROVIDED BIO TEXT (if available) - analyze thoroughly
-   - Written bio descriptions in images
-   - Job titles or university names
-   - Hobby tags or interests
-   - Location information
-   - Any text overlays or captions
-   - Social media handles or app-specific tags
+Analysis Focus:
+1. **textContent**: Extract bio text, tags, profession, interests, and other conversation-relevant text
+2. **visualContent**: Observe activity scenes, clothing style, hobbies, lifestyle elements
+3. **summary**: Overall personality impression based on analysis
+4. **insights**: Provide 3-5 specific conversation entry points, such as:
+   - Specific hobbies or activities shown
+   - Unique clothing style or accessories
+   - Interesting background environments or objects
+   - Personality traits displayed
+   - Elements that could prompt story-telling
 
-2. **visualContent** (SECONDARY): Only after exhausting text analysis, observe:
-   - Activity scenes, clothing style, hobbies, lifestyle elements
-   - Background environments or objects
-   - Body language and expressions
-
-3. **summary**: Overall personality impression based PRIMARILY on text content (bio + extracted text), supplemented by visual cues
-
-4. **insights**: Provide 3-5 specific conversation entry points, PRIORITIZING text-based insights:
-   - Text-based: Specific interests, job, hobbies mentioned in bio or extracted text
-   - Visual-based: Activities, environments, accessories (only if text is insufficient)
-   - Personality traits inferred from text first, then visual cues
-
-Each insight should be specific enough to be directly used in opening lines, avoiding generic observations. Always prioritize text-derived insights over visual ones.`
+Each insight should be specific enough to be directly used in opening lines, avoiding generic observations.`
 
   const messages = [
     {

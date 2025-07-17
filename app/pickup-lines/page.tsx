@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { Plus, X, Sparkles, Copy, MessageCircle, RotateCcw, Check } from "lucide-react"
+import { Plus, X, Sparkles, Copy, MessageCircle, RotateCcw, Check, ChevronUp, ChevronDown } from "lucide-react"
 import Image from "next/image"
 import Header from "@/components/header"
 import { useToast } from "@/hooks/use-toast"
@@ -29,10 +29,10 @@ export default function PickupLinesPage() {
   const [isGenerating, setIsGenerating] = useState(false)
   const [regeneratingIndex, setRegeneratingIndex] = useState<number | null>(null)
   const [profileAnalysis, setProfileAnalysis] = useState<any>(null)
-  const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [showProfileAnalysis, setShowProfileAnalysis] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
+  const [isInfoExpanded, setIsInfoExpanded] = useState(true)
 
   const tones = ["Flirty", "Funny", "Casual"]
 
@@ -79,57 +79,6 @@ export default function PickupLinesPage() {
     }
   }
 
-  const handleAnalyzeProfile = async () => {
-    if (uploadedImages.length === 0) {
-      toast({
-        description: "Please upload at least one profile image first.",
-        duration: 3000,
-        className: "fixed bottom-4 right-4 bg-red-50 border border-red-200 shadow-lg rounded-lg p-3 w-auto max-w-[280px]",
-      })
-      return
-    }
-
-    setIsAnalyzing(true)
-    
-    try {
-      const photos = uploadedImages.map(img => img.preview)
-      const result = await clientAPI.analyzeProfile({
-        bio: otherInfo || "No additional information provided",
-        photos,
-        matchName: matchName || undefined,
-        otherInfo: otherInfo || undefined
-      })
-      
-      setProfileAnalysis(result)
-      setShowProfileAnalysis(true)
-      
-      // Save as intermediate results for pickup lines generation
-      // This data will be used as reference for generating personalized pickup lines
-      
-      toast({
-        description: (
-          <div className="flex items-center space-x-2">
-            <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
-              <Check className="w-3 h-3 text-white" />
-            </div>
-            <span className="text-gray-900 text-sm">Profile analyzed successfully!</span>
-          </div>
-        ),
-        duration: 3000,
-        className: "fixed bottom-4 right-4 bg-white border border-gray-200 shadow-lg rounded-lg p-3 w-auto max-w-[320px]",
-      })
-    } catch (error) {
-      console.error('Profile analysis error:', error)
-      toast({
-        description: "Failed to analyze profile. Please try again.",
-        duration: 3000,
-        className: "fixed bottom-4 right-4 bg-red-50 border border-red-200 shadow-lg rounded-lg p-3 w-auto max-w-[280px]",
-      })
-    } finally {
-      setIsAnalyzing(false)
-    }
-  }
-
   const removeImage = (id: string) => {
     setUploadedImages((prev) => prev.filter((img) => img.id !== id))
   }
@@ -161,25 +110,28 @@ export default function PickupLinesPage() {
       return
     }
 
-    if (!profileAnalysis) {
-      alert("Please analyze the profile first.")
-      return
-    }
-
+    setIsInfoExpanded(false)
     setIsGenerating(true)
     setShowProfileAnalysis(false)
-    
     try {
+      // 1. 自动分析profile
+      const photos = uploadedImages.map(img => img.preview)
+      const analysisResult = await clientAPI.analyzeProfile({
+        bio: otherInfo || "No additional information provided",
+        photos,
+        matchName: matchName || undefined,
+        otherInfo: otherInfo || undefined
+      })
+      setProfileAnalysis(analysisResult)
+      setShowProfileAnalysis(true)
+      // 2. 分析成功后再生成pickup lines
       const result = await clientAPI.generatePickupLines({
-        analysis: {
-          summary: profileAnalysis.summary,
-          insights: profileAnalysis.insights
-        },
+        summary: analysisResult.summary,
+        insights: analysisResult.insights,
         tone: selectedTone,
         matchName: matchName || undefined,
         otherInfo: otherInfo || undefined
       })
-      
       setGeneratedReplies(result.pickupLines)
     } catch (error) {
       console.error('Error generating pickup lines:', error)
@@ -220,67 +172,61 @@ export default function PickupLinesPage() {
       <div className="container mx-auto px-4 pt-2 pb-20 flex-1 flex items-center justify-center">
         <Card className="w-full max-w-5xl bg-white/80 backdrop-blur-sm shadow-xl border-0 rounded-2xl flex flex-col">
           {/* Information Section */}
-          <CardHeader className="pb-2 flex-shrink-0">
-            <CardTitle className="text-xl font-bold text-gray-900">Information</CardTitle>
+          <CardHeader className="pb-2 flex-shrink-0 cursor-pointer" onClick={() => setIsInfoExpanded(v => !v)}>
+            <CardTitle className="text-xl font-bold text-gray-900 flex items-center">
+              Information
+              {isInfoExpanded ? (
+                <ChevronUp className="w-5 h-5 ml-2 text-gray-500" />
+              ) : (
+                <ChevronDown className="w-5 h-5 ml-2 text-gray-500" />
+              )}
+            </CardTitle>
           </CardHeader>
-
-          <CardContent className="pb-3 flex-shrink-0">
-            <div className="grid grid-cols-12 gap-4">
-              <div className="col-span-4">
-                <label className="block text-xs font-medium text-gray-700 mb-1 flex items-center">
-                  <div className="group relative">
-                    <span>Match's Name</span>
-                    <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-10">
-                      Enter your match's name or nickname
-                      <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
+          {isInfoExpanded && (
+            <CardContent className="pb-3 flex-shrink-0">
+              <div className="grid grid-cols-12 gap-4">
+                <div className="col-span-4">
+                  <label className="block text-xs font-medium text-gray-700 mb-1 flex items-center">
+                    <div className="group relative">
+                      <span>Match's Name</span>
+                      <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-10">
+                        Enter your match's name or nickname
+                        <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
+                      </div>
                     </div>
-                  </div>
-                </label>
-                <Input
-                  placeholder="Default"
-                  value={matchName}
-                  onChange={(e) => setMatchName(e.target.value)}
-                  className="rounded-xl border-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent h-10 text-sm"
-                />
-              </div>
-              <div className="col-span-8">
-                <label className="block text-xs font-medium text-gray-700 mb-1 flex items-center">
-                  <div className="group relative">
-                    <span>Other Information</span>
-                    <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-10">
-                      Add details like age, interests, or conversation context
-                      <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
+                  </label>
+                  <Input
+                    placeholder="Default"
+                    value={matchName}
+                    onChange={(e) => setMatchName(e.target.value)}
+                    className="rounded-xl border-gray-300 focus:border-gray-400"
+                  />
+                </div>
+                <div className="col-span-8">
+                  <label className="block text-xs font-medium text-gray-700 mb-1 flex items-center">
+                    <div className="group relative">
+                      <span>Other Information</span>
+                      <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-10">
+                        Add details like age, interests, or conversation context
+                        <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
+                      </div>
                     </div>
-                  </div>
-                </label>
-                <Input
-                  placeholder="Entering additional information about dating allows us to understand her/him better."
-                  value={otherInfo}
-                  onChange={(e) => setOtherInfo(e.target.value)}
-                  className="rounded-xl border-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent h-10 text-sm"
-                />
+                  </label>
+                  <Input
+                    placeholder="Entering additional information about dating allows us to understand her/him better."
+                    value={otherInfo}
+                    onChange={(e) => setOtherInfo(e.target.value)}
+                    className="rounded-xl border-gray-300 focus:border-gray-400"
+                  />
+                </div>
               </div>
-            </div>
-          </CardContent>
+            </CardContent>
+          )}
 
           {/* Screenshot Section */}
           <CardContent className="py-3 border-t border-gray-100">
-            <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center mb-3">
               <h3 className="text-lg font-semibold text-gray-900">Profile Screenshots</h3>
-              <Button
-                onClick={handleAnalyzeProfile}
-                disabled={isAnalyzing || uploadedImages.length === 0}
-                className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white px-4 py-2 rounded-xl shadow-md hover:shadow-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
-              >
-                {isAnalyzing ? (
-                  <div className="flex items-center space-x-2">
-                    <Sparkles className="w-3 h-3 animate-spin" />
-                    <span>Analyzing...</span>
-                  </div>
-                ) : (
-                  "Analyze Profile"
-                )}
-              </Button>
             </div>
 
             <div className="bg-gray-50 rounded-xl p-4 h-72">

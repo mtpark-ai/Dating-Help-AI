@@ -23,24 +23,9 @@ export default function Footer() {
             {/* Social Media Icons */}
             <div className="flex space-x-4">
               <Link
-                href="https://instagram.com"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-10 h-10 bg-white hover:bg-pink-500 hover:text-white rounded-lg flex items-center justify-center transition-colors duration-200 shadow-sm border border-gray-200"
-              >
-                <Instagram className="w-5 h-5" />
-              </Link>
-              <Link
-                href="https://twitter.com"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-10 h-10 bg-white hover:bg-blue-500 hover:text-white rounded-lg flex items-center justify-center transition-colors duration-200 shadow-sm border border-gray-200"
-              >
-                <Twitter className="w-5 h-5" />
-              </Link>
-              <Link
                 href="mailto:contact@datinghelpai.com"
                 className="w-10 h-10 bg-white hover:bg-purple-500 hover:text-white rounded-lg flex items-center justify-center transition-colors duration-200 shadow-sm border border-gray-200"
+                title="contact@datinghelpai.com"
               >
                 <Mail className="w-5 h-5" />
               </Link>
@@ -100,17 +85,17 @@ export default function Footer() {
                 </Link>
               </li>
               <li className="relative group">
-                <span className="text-gray-400 cursor-not-allowed">Profile Review</span>
-                <div className="absolute bottom-full left-0 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-10">
+                <span className="text-gray-400 cursor-default font-medium whitespace-nowrap">Profile Review</span>
+                <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 px-2 py-1 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-10">
                   Launching Soon
-                  <div className="absolute top-full left-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
+                  <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-b-4 border-transparent border-b-gray-900"></div>
                 </div>
               </li>
               <li className="relative group">
-                <span className="text-gray-400 cursor-not-allowed">AI Enhanced Photos</span>
-                <div className="absolute bottom-full left-0 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-10">
+                <span className="text-gray-400 cursor-default font-medium whitespace-nowrap">AI Enhanced Photos</span>
+                <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 px-2 py-1 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-10">
                   Launching Soon
-                  <div className="absolute top-full left-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
+                  <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-b-4 border-transparent border-b-gray-900"></div>
                 </div>
               </li>
               <li>

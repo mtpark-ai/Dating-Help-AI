@@ -2,13 +2,12 @@
 
 import type React from "react"
 
-
 import { useState, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { Plus, X, Sparkles, Copy, MessageCircle, RotateCcw, Check } from "lucide-react"
+import { Plus, X, Sparkles, Copy, MessageCircle, RotateCcw, Check, ChevronUp, ChevronDown } from "lucide-react"
 import Image from "next/image"
 import Header from "@/components/header"
 import { useToast } from "@/hooks/use-toast"
@@ -30,6 +29,7 @@ export default function UploadPage() {
   const [regeneratingIndex, setRegeneratingIndex] = useState<number | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
+  const [isInfoExpanded, setIsInfoExpanded] = useState(true)
 
   const tones = ["Flirty", "Funny", "Casual"]
 
@@ -112,7 +112,7 @@ export default function UploadPage() {
       alert("Please upload at least one screenshot first.")
       return
     }
-
+    setIsInfoExpanded(false)
     setIsGenerating(true)
     // Simulate API call
     await new Promise((resolve) => setTimeout(resolve, 2000))
@@ -153,48 +153,56 @@ export default function UploadPage() {
       <div className="container mx-auto px-4 pt-2 pb-20 flex-1 flex items-center justify-center">
         <Card className="w-full max-w-5xl bg-white/80 backdrop-blur-sm shadow-xl border-0 rounded-2xl flex flex-col">
           {/* Information Section */}
-          <CardHeader className="pb-2 flex-shrink-0">
-            <CardTitle className="text-xl font-bold text-gray-900">Information</CardTitle>
+          <CardHeader className="pb-2 flex-shrink-0 cursor-pointer" onClick={() => setIsInfoExpanded(v => !v)}>
+            <CardTitle className="text-xl font-bold text-gray-900 flex items-center">
+              Information
+              {isInfoExpanded ? (
+                <ChevronUp className="w-5 h-5 ml-2 text-gray-500" />
+              ) : (
+                <ChevronDown className="w-5 h-5 ml-2 text-gray-500" />
+              )}
+            </CardTitle>
           </CardHeader>
-
-          <CardContent className="pb-3 flex-shrink-0">
-            <div className="grid grid-cols-12 gap-4">
-              <div className="col-span-4">
-                <label className="block text-xs font-medium text-gray-700 mb-1 flex items-center">
-                  <div className="group relative">
-                    <span>Match's Name</span>
-                    <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-10">
-                      Enter your match's name or nickname
-                      <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
+          {isInfoExpanded && (
+            <CardContent className="pb-3 flex-shrink-0">
+              <div className="grid grid-cols-12 gap-4">
+                <div className="col-span-4">
+                  <label className="block text-xs font-medium text-gray-700 mb-1 flex items-center">
+                    <div className="group relative">
+                      <span>Match's Name</span>
+                      <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-10">
+                        Enter your match's name or nickname
+                        <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
+                      </div>
                     </div>
-                  </div>
-                </label>
-                <Input
-                  placeholder="Default"
-                  value={matchName}
-                  onChange={(e) => setMatchName(e.target.value)}
-                  className="rounded-xl border-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent h-10 text-sm"
-                />
-              </div>
-              <div className="col-span-8">
-                <label className="block text-xs font-medium text-gray-700 mb-1 flex items-center">
-                  <div className="group relative">
-                    <span>Other Information</span>
-                    <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-10">
-                      Add details like age, interests, or conversation context
-                      <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
+                  </label>
+                  <Input
+                    placeholder="Default"
+                    value={matchName}
+                    onChange={(e) => setMatchName(e.target.value)}
+                    className="rounded-xl border-gray-300 focus:border-gray-400"
+                  />
+                </div>
+                <div className="col-span-8">
+                  <label className="block text-xs font-medium text-gray-700 mb-1 flex items-center">
+                    <div className="group relative">
+                      <span>Other Information</span>
+                      <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-10">
+                        Add details like age, interests, or conversation context
+                        <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
+                      </div>
                     </div>
-                  </div>
-                </label>
-                <Input
-                  placeholder="Entering additional information about dating allows us to understand her/him better."
-                  value={otherInfo}
-                  onChange={(e) => setOtherInfo(e.target.value)}
-                  className="rounded-xl border-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent h-10 text-sm"
-                />
+                  </label>
+                  <Input
+                    placeholder="Entering additional information about dating allows us to understand her/him better."
+                    value={otherInfo}
+                    onChange={(e) => setOtherInfo(e.target.value)}
+                    className="rounded-xl border-gray-300 focus:border-gray-400"
+                  />
+                </div>
               </div>
-            </div>
-          </CardContent>
+            </CardContent>
+          )}
 
           {/* Screenshot Section */}
           <CardContent className="py-3 border-t border-gray-100">
