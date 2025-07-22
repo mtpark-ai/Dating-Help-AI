@@ -2,10 +2,10 @@ import { TONE_SPECIFIC_GUIDELINES } from './config/pickup-line-prompts'
 import type { GeneratePickupLinesRequest, GeneratePickupLinesResponse } from '@/types'
 
 export async function generatePickupLines(body: GeneratePickupLinesRequest): Promise<GeneratePickupLinesResponse> {
-  const apiKey = process.env.OPENAI_API_KEY || "sk-OkCSj0NXkWhE0Sv6Be0dEc773fD74903A1D9Ea983612C6Cf"
-  const baseURL = process.env.OPENAI_BASE_URL || "https://api.openai-next.com/v1"
+  const apiKey = process.env.OPENAI_API_KEY || ""
+  const baseURL = process.env.OPENAI_BASE_URL || ""
 
-  const { summary, insights, tone, matchName, otherInfo } = body
+  const { analysis: { summary, insights }, tone, matchName, otherInfo } = body
   const toneGuidelines = TONE_SPECIFIC_GUIDELINES[tone as keyof typeof TONE_SPECIFIC_GUIDELINES] || TONE_SPECIFIC_GUIDELINES.Casual
 
   // Build high-quality structured prompt
@@ -93,5 +93,5 @@ Generate pickup lines based on the above analysis:`
     pickupLines.push("I noticed something interesting in your profile - what's the story behind it?")
   }
 
-  return { pickupLines }
+  return { lines: pickupLines }
 }

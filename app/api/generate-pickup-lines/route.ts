@@ -19,6 +19,10 @@ export const POST = wrapAsyncHandler(async (request: NextRequest) => {
     throw new ValidationError('Analysis must contain insights array')
   }
   
+  if (!body.analysis.summary || typeof body.analysis.summary !== 'string') {
+    throw new ValidationError('Analysis must contain summary string')
+  }
+  
   logger.debug('Pickup lines generation request validated', {
     hasAnalysis: !!body.analysis,
     insightsCount: body.analysis.insights?.length || 0,
