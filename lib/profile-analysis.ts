@@ -3,8 +3,8 @@ import type { ProfileAnalysisRequest, ProfileAnalysisResponse } from '@/types'
 export async function analyzeProfile(body: ProfileAnalysisRequest): Promise<ProfileAnalysisResponse> {
   console.log('Received request:', { imageCount: body.photos.length, matchName: body.matchName, otherInfo: body.otherInfo })
   
-  const apiKey = process.env.OPENAI_API_KEY || "sk-OkCSj0NXkWhE0Sv6Be0dEc773fD74903A1D9Ea983612C6Cf"
-  const baseURL = process.env.OPENAI_BASE_URL || "https://api.openai-next.com/v1"
+  const apiKey = process.env.OPENAI_API_KEY || ""
+  const baseURL = process.env.OPENAI_BASE_URL || ""
 
   const analysisPrompt = `You are a professional dating app profile analyst. Carefully analyze these profile images and extract conversation-relevant information.
 

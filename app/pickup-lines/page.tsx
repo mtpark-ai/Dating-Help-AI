@@ -126,13 +126,15 @@ export default function PickupLinesPage() {
       setShowProfileAnalysis(true)
       // 2. 分析成功后再生成pickup lines
       const result = await clientAPI.generatePickupLines({
-        summary: analysisResult.summary,
-        insights: analysisResult.insights,
+        analysis: {
+          summary: analysisResult.summary,
+          insights: analysisResult.insights
+        },
         tone: selectedTone,
         matchName: matchName || undefined,
         otherInfo: otherInfo || undefined
       })
-      setGeneratedReplies(result.pickupLines)
+      setGeneratedReplies(result.lines)
     } catch (error) {
       console.error('Error generating pickup lines:', error)
       // Fallback to original replies if API fails
