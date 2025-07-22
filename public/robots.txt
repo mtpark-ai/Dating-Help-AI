@@ -3,8 +3,8 @@ User-agent: *
 Allow: /
 
 # Host
-Host: https://dating-help-ai.example.com
+Host: https://www.datinghelpai.com
 
 # Sitemaps
-Sitemap: https://dating-help-ai.example.com/sitemap.xml
-Sitemap: https://example.com/server-sitemap.xml
+Sitemap: https://www.datinghelpai.com/sitemap.xml
+Sitemap: https://www.datinghelpai.com/server-sitemap.xml
