@@ -1,0 +1,10 @@
+# *
+User-agent: *
+Allow: /
+
+# Host
+Host: https://dating-help-ai.example.com
+
+# Sitemaps
+Sitemap: https://dating-help-ai.example.com/sitemap.xml
+Sitemap: https://example.com/server-sitemap.xml
