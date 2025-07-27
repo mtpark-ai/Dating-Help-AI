@@ -112,7 +112,7 @@ export default function HomePage() {
                 {/* Pickup Lines Image */}
                 <div className="w-full max-w-sm mx-auto h-56 mb-4 relative flex items-center justify-center">
                   <Image
-                    src="/images/smart-pickup-lines.png"
+                    src="/images/smart-pickup-lines.webp"
                     alt="AI Pickup Lines Feature"
                     width={300}
                     height={200}
@@ -142,7 +142,7 @@ export default function HomePage() {
                 {/* Chat Assistance Image */}
                 <div className="w-full max-w-sm mx-auto h-56 mb-4 relative flex items-center justify-center">
                   <Image
-                    src="/images/chat-assistance.png"
+                    src="/images/chat-assistance.webp"
                     alt="AI Chat Assistance Feature"
                     width={300}
                     height={200}
@@ -199,7 +199,7 @@ export default function HomePage() {
               </div>
               <div className="w-full h-48 md:h-64 bg-white rounded-2xl shadow-lg flex items-center justify-center relative">
                 <Image
-                  src="/images/ai-coach-updated.png"
+                  src="/images/ai-coach-updated.webp"
                   alt="Dating AI Coach Feature"
                   fill
                   className="object-contain p-4"
@@ -250,7 +250,7 @@ export default function HomePage() {
               </div>
               <div className="w-full h-48 md:h-64 bg-white rounded-2xl shadow-lg flex items-center justify-center relative">
                 <Image
-                  src="/images/profile-review-updated.png"
+                  src="/images/profile-review-updated.webp"
                   alt="Dating Profile Review Feature"
                   fill
                   className="object-contain p-4"
@@ -263,7 +263,7 @@ export default function HomePage() {
             <div className="grid md:grid-cols-2 gap-12 items-center">
               <div className="w-full h-48 md:h-64 bg-white rounded-2xl shadow-lg flex items-center justify-center relative md:order-first">
                 <Image
-                  src="/images/photo-generator-updated.png"
+                  src="/images/photo-generator-updated.webp"
                   alt="Dating App Photo Generator Feature"
                   fill
                   className="object-contain p-4"

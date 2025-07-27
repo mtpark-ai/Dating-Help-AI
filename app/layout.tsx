@@ -7,6 +7,21 @@ export const metadata: Metadata = {
   description: 'Boost your dating app success with Dating Help AI. Get AI-powered conversation assistance, pickup lines, profile reviews, and photo optimization for Tinder, Bumble, Hinge & more. Try free today!',
   keywords: 'dating help ai, ai dating coach, tinder ai, bumble ai, hinge ai, dating app assistant, ai pickup lines, dating profile review, dating conversation help, online dating success',
   generator: 'Dating Help AI',
+  icons: {
+    icon: [
+      { url: '/favicon.ico', sizes: 'any' },
+      { url: '/favicon-16x16.png', sizes: '16x16', type: 'image/png' },
+      { url: '/favicon-32x32.png', sizes: '32x32', type: 'image/png' },
+      { url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' },
+    ],
+    apple: [
+      { url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' },
+    ],
+    other: [
+      { rel: 'mask-icon', url: '/safari-pinned-tab.svg', color: '#ec4899' },
+    ],
+  },
+  manifest: '/site.webmanifest',
   openGraph: {
     title: 'Dating Help AI - Your AI Dating Coach for Tinder, Bumble & Hinge Success',
     description: 'Boost your dating app success with Dating Help AI. Get AI-powered conversation assistance, pickup lines, profile reviews, and photo optimization for Tinder, Bumble, Hinge & more. Try free today!',
