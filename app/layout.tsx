@@ -50,6 +50,61 @@ export default function RootLayout({
             `,
           }}
         />
+        {/* Schema.org Structured Data */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "WebSite",
+              "name": "Dating Help AI",
+              "description": "Your AI Dating Coach for Tinder, Bumble & Hinge Success",
+              "url": "https://dating-help-ai.com",
+              "potentialAction": {
+                "@type": "SearchAction",
+                "target": "https://dating-help-ai.com/search?q={search_term_string}",
+                "query-input": "required name=search_term_string"
+              },
+              "publisher": {
+                "@type": "Organization",
+                "name": "Dating Help AI",
+                "url": "https://dating-help-ai.com",
+                "logo": {
+                  "@type": "ImageObject",
+                  "url": "https://dating-help-ai.com/placeholder-logo.png"
+                }
+              },
+              "sameAs": [
+                "https://twitter.com/datinghelpai",
+                "https://facebook.com/datinghelpai"
+              ]
+            })
+          }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "SoftwareApplication",
+              "name": "Dating Help AI",
+              "description": "AI-powered dating app assistant for Tinder, Bumble, and Hinge",
+              "applicationCategory": "LifestyleApplication",
+              "operatingSystem": "Web Browser",
+              "offers": {
+                "@type": "Offer",
+                "price": "0",
+                "priceCurrency": "USD"
+              },
+              "featureList": [
+                "AI Pickup Lines",
+                "Dating AI Coach", 
+                "Profile Review",
+                "Photo Generator"
+              ]
+            })
+          }}
+        />
       </head>
       <body>
         <ErrorBoundary>
