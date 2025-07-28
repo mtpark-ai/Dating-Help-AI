@@ -294,6 +294,8 @@ function ConversationPageContent() {
                     >
                       {msg.sender === "user" ? (
                         <span className="text-white font-semibold text-xs">M</span>
+                      ) : matchName ? (
+                        <span className="text-gray-700 font-semibold text-xs">{matchName.charAt(0).toUpperCase()}</span>
                       ) : (
                         <User className="w-4 h-4 text-gray-600" />
                       )}

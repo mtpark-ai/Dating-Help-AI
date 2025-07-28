@@ -11,6 +11,15 @@ import type {
   OpenAIMessage
 } from '@/types'
 
+const toneTemperatureMap: Record<string, number> = {
+  flirty: 0.7,
+  funny: 0.65,
+  casual: 0.6,
+}
+function getTemperatureByTone(tone?: string) {
+  if (!tone) return 0.7;
+  return toneTemperatureMap[tone] ?? 0.7;
+}
 
 class GPTService {
   private apiKey: string
@@ -85,7 +94,7 @@ class GPTService {
           body: JSON.stringify({
             model: "chatgpt-4o-latest",
             messages: messages,
-            temperature: 0.8,
+            temperature: getTemperatureByTone(request.tone),
             max_tokens: 150
           })
         })
@@ -176,7 +185,7 @@ class GPTService {
         body: JSON.stringify({
           model: "chatgpt-4o-latest",
           messages: messages,
-          temperature: 0.9,
+          temperature: getTemperatureByTone(request.tone),
           max_tokens: 100
         })
       })
@@ -242,7 +251,7 @@ class GPTService {
               ]
             }
           ],
-          temperature: 0.1,
+          temperature: getTemperatureByTone(),
           max_tokens: 1000
         })
       })

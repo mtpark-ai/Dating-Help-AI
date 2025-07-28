@@ -1,6 +1,16 @@
 import { TONE_SPECIFIC_GUIDELINES } from './config/pickup-line-prompts'
 import type { GeneratePickupLinesRequest, GeneratePickupLinesResponse } from '@/types'
 
+const toneTemperatureMap: Record<string, number> = {
+  flirty: 0.7,
+  funny: 0.65,
+  casual: 0.6,
+}
+function getTemperatureByTone(tone?: string) {
+  if (!tone) return 0.7;
+  return toneTemperatureMap[tone] ?? 0.7;
+}
+
 export async function generatePickupLines(body: GeneratePickupLinesRequest): Promise<GeneratePickupLinesResponse> {
   const apiKey = process.env.OPENAI_API_KEY || ""
   const baseURL = process.env.OPENAI_BASE_URL || ""
@@ -25,9 +35,7 @@ ${matchName ? `## Match Information\nName: ${matchName}` : ''}
 ${otherInfo ? `Additional Background: ${otherInfo}` : ''}
 
 # ${tone} Style Guidelines
-- **Energy Characteristics:** ${toneGuidelines.energy}
-- **Core Techniques:** ${toneGuidelines.techniques.join(', ')}
-- **Must Avoid:** ${toneGuidelines.avoid.join(', ')}
+${toneGuidelines}
 
 # Generation Strategy
 ## Must Accomplish:
@@ -66,8 +74,8 @@ Generate pickup lines based on the above analysis:`
           content: expertPrompt
         }
       ],
-      temperature: 0.9,
-      max_tokens: 600
+      temperature: getTemperatureByTone(tone),
+      max_tokens: 150
     })
   })
 
