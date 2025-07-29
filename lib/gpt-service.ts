@@ -68,19 +68,32 @@ class GPTService {
     // 增强的提示词，强调基于整个对话历史生成高情商回复
     const enhancedPrompt = `${systemPrompt}
 
-重要指示：
-- 仔细分析整个对话历史和语境
-- 生成能够推进关系发展的高情商回复
-- 考虑对话的自然流动性和连贯性
-- 回复要有魅力、自然且不做作
-- 避免过于直接或被动的表达
+# Generation Strategy
+## Must Accomplish:
+1. Carefully analyze the full conversation history and context.
+2. Generate emotionally intelligent replies that help deepen the connection.
+3. Ensure the reply feels natural and contextually coherent.
+4. Responses should be charming, relaxed, and not feel forced.
+5. Avoid overly passive expressions — your reply should naturally invite a response.
+6. When appropriate, suggest a casual meetup based on shared interests.
+7. Word limit: 1–25 English words. You may include one or more emojis in the reply.
+8. The user may provide extra information (e.g. match's name or interests) — only weave it in when it fits naturally. Do not mention it forcefully.
 
-请基于以上完整的对话历史，生成3个不同风格但都高质量的回复选项，每个回复用换行分隔。`
+# output Requirements: 
+- Based on the full conversation history above, generate 3 high-quality replies in the user's selected tone. Separate each reply with a line break.
+
+# Quality Checklist:
+1. Does the reply match the selected tone (e.g. flirty, funny, casual)?
+2. Is it context-aware and consistent with the conversation history?
+3. Does it sound natural, like something a real person would say?
+4. Does it subtly advance the relationship or keep the conversation engaging?
+5. Does it avoid being too generic, robotic, or emotionally flat?
+6. Would it likely receive a reply from the other person?`
 
     const messages: OpenAIMessage[] = [
       { role: "system", content: enhancedPrompt },
       ...conversationMessages,
-      { role: "user", content: "请为我生成3个高情商、有魅力的回复选项，要求简短自然，符合当前对话语境和关系发展阶段。每个回复用换行分隔。" }
+      { role: "user", content: "Generate 3 concise, thoughtful and engaging reply options that feel natural, fit the current conversation flow and match the stage of the relationship. Put each reply on a separate line." }
     ]
 
     return withRetry(async () => {
@@ -163,16 +176,16 @@ class GPTService {
     // 增强的重新生成提示
     const enhancedPrompt = `${systemPrompt}
 
-重要指示：
-- 基于完整对话历史生成新的高质量回复
-- 要与之前的回复风格不同但质量更高
-- 确保新回复更有魅力和吸引力
-- 考虑对话发展的最佳方向`
+Important instructions:
+- Generate a new high-quality reply based on the full conversation history  
+- Maintain the same tone as the previous replies, allow slight stylistic variations, and ensure the overall quality is higher 
+- Ensure the new reply is more charming and engaging  
+- Consider the best direction for the conversation to develop`
 
     const messages: OpenAIMessage[] = [
       { role: "system", content: enhancedPrompt },
       ...conversationMessages,
-      { role: "user", content: `请生成一个与此回复不同但更优质的新回复：${request.currentReply}。新回复要更有魅力，更符合对话发展需要。` }
+      { role: "user", content: `Generate a new reply that differs from the current one, but is of higher quality：${request.currentReply}。The new reply should be more charming and fit the conversation development needs.` }
     ]
 
     try {
@@ -203,26 +216,26 @@ class GPTService {
   }
 
   async analyzeScreenshot(request: AnalyzeImageRequest): Promise<AnalyzeImageResponse> {
-    const systemPrompt = `你是一个专业的聊天记录分析师。请分析提供的聊天截图，提取所有对话文本信息。
+    const systemPrompt = `You are a professional chat transcript analyst. Please analyze the provided chat screenshot and extract all conversation text.
 
-任务要求：
-1. 仔细观察聊天界面的左右布局、颜色、头像位置等特征
-2. 区分哪些是对方（Match）的消息，哪些是我的消息
-3. 按照时间顺序整理所有对话内容
-4. 输出格式为JSON数组，包含sender和message字段
-5. sender字段只能是"match"或"user"
+Task requirements:
+1. Carefully observe the chat interface, including left/right bubble positions, colors, and avatar locations.
+2. Distinguish which messages are from the other person ("match") and which are from me ("user").
+3. Arrange all messages in chronological order.
+4. The output format must be a JSON array containing two keys: sender and message.
+5. The sender field must have a value of either match or user.
 
-输出格式示例：
+Example output format:
 [
-  {"sender": "match", "message": "消息内容"},
-  {"sender": "user", "message": "消息内容"}
+  {"sender": "match", "message": "Message content"},
+  {"sender": "user", "message": "Message content"}
 ]
 
-注意事项：
-- 仔细识别文本内容，包括表情符号和特殊字符
-- 确保消息的时间顺序正确
-- 不要遗漏任何对话内容
-- 只返回JSON数组，不要其他解释文字`
+Notes:
+- Carefully capture all text, including emojis and special characters.
+- Ensure the messages are in the correct chronological order.
+- Do not omit any conversation content.
+- Return only the JSON array without any additional explanation or text.`
 
     try {
       const response = await fetch(`${this.baseURL}/chat/completions`, {

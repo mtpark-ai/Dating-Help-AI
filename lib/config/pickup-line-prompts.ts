@@ -36,13 +36,7 @@ export const EXPERT_PICKUP_LINE_SYSTEM_PROMPT = `
 - "Style Reader": 从穿搭/环境读出personality
 - "Activity Analyzer": 从动作/表情推断性格
 
-## B. 开场句式精选
-- "I have a theory about you based on [specific detail]..."
-- "Okay, I need to know the story behind [specific element]..."
-- "Two things caught my attention: [detail 1] and [detail 2]..."
-- "I'm getting [personality trait] vibes from [specific observation]..."
-
-## C. 问题升级技巧
+## B. 问题升级技巧
 - Level 1: 事实问题 → Level 2: 体验问题 → Level 3: 价值观问题
 - 例: "Where was this taken?" → "What made you choose this spot?" → "Are you more of an adventure planner or spontaneous explorer?"
 

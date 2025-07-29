@@ -39,17 +39,22 @@ ${toneGuidelines}
 
 # Generation Strategy
 ## Must Accomplish:
-1. **Specific Observations**: Each line must reference specific details from the insights above
-2. **Formula Application**: [Personalized Observation] + [Curiosity-Inducing Question/Comment]
-3. **Optimal Length**: 15-25 English words
-4. **Conversation-Friendly**: Design open-ended questions that are easy to respond to
-5. **Style Consistency**: Strictly follow ${tone} style characteristics
+1. Carefully analyze the full conversation history and context.
+2. Generate emotionally intelligent replies that help deepen the connection.
+3. Ensure the reply feels natural and contextually coherent.
+4. Responses should be charming, relaxed, and not feel forced.
+5. Avoid overly passive expressions — your reply should naturally invite a response.
+6. When appropriate, suggest a casual meetup based on shared interests.
+7. Word limit: 1–25 English words. You may include one or more emojis in the reply.
+8. The user may provide extra information (e.g. match's name or interests) — only weave it in when it fits naturally. Do not mention it forcefully.
 
 ## Quality Checklist:
-- Is it based on specific profile details?
-- Does it avoid generic compliments?
-- Does it create desire to respond?
-- Does it match ${tone} style requirements?
+1. Does it match ${tone} style requirements?
+2. Does it create desire to respond?
+3. Does it sound natural, like something a real person would say?
+4. Does it subtly advance the relationship or keep the conversation engaging?
+5. Does it avoid being too generic, robotic, or emotionally flat?
+6. Is it based on specific profile details?
 
 # Output Requirements
 Output 3 pickup lines, one per line, no numbering needed. Each should make the person think: "Wow, this person really looked at my profile carefully!"
