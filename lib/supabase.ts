@@ -25,6 +25,12 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
       if (event === 'SIGNED_IN' && session) {
         // 可以在这里添加额外的会话处理逻辑
         console.log('User signed in:', session.user.email)
+      } else if (event === 'SIGNED_UP' && session) {
+        // 用户注册成功
+        console.log('User signed up:', session.user.email)
+      } else if (event === 'USER_UPDATED') {
+        // 用户信息更新（比如邮箱确认）
+        console.log('User updated:', session?.user?.email)
       }
     }
   },

@@ -117,22 +117,21 @@ export function useAuth() {
       
       // 检查返回的数据，判断用户是否已经存在
       if (data?.user && !data.session) {
-        // 如果返回了用户但没有session，说明用户已存在但需要确认邮箱
-        console.log('User exists but email not confirmed, checking if we can login...')
-        
-        // 尝试自动登录
-        const loginResult = await signIn(email, password, false)
-        console.log('Auto login result for existing user:', loginResult)
-        
-        if (loginResult.error) {
-          // 自动登录失败，返回登录错误
-          console.log('Auto login failed for existing user, returning error')
-          return { data: null, error: loginResult.error, autoLoginAttempted: true }
-        } else {
-          // 自动登录成功
-          console.log('Auto login successful for existing user')
-          return { data: loginResult.data, error: null, autoLoginAttempted: true }
-        }
+        // 如果返回了用户但没有session，说明是新用户注册成功，需要确认邮箱
+        console.log('New user signup successful, email confirmation required')
+        return { data, error: null, autoLoginAttempted: false }
+      }
+      
+      // 如果返回了用户和session，说明用户已存在且登录成功
+      if (data?.user && data.session) {
+        console.log('Existing user auto login successful')
+        return { data, error: null, autoLoginAttempted: true }
+      }
+      
+      // 如果没有返回用户数据，但也没有错误，可能是特殊情况
+      if (!data?.user) {
+        console.log('No user data returned, but no error either')
+        return { data: null, error: new Error('No user data returned'), autoLoginAttempted: false }
       }
       
       console.log('New user signup successful')
