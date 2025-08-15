@@ -16,6 +16,7 @@ import { clientAPI } from "@/lib/client-api"
 import { FeedbackModal } from "@/components/feedback-modal"
 import { SignupModal } from "@/components/signup-modal"
 import { useAuth } from "@/hooks/use-auth"
+import { useGenerateCount } from "@/hooks/use-generate-count"
 
 interface UploadedImage {
   id: string
@@ -36,18 +37,11 @@ export default function PickupLinesPage() {
   const [copyCount, setCopyCount] = useState(0)
   const [showFeedbackModal, setShowFeedbackModal] = useState(false)
   const [showSignupModal, setShowSignupModal] = useState(false)
-  const [generateButtonClickCount, setGenerateButtonClickCount] = useState(0)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
   const { user } = useAuth()
+  const { incrementCount, shouldShowSignupModal, resetCount } = useGenerateCount()
   const [isInfoExpanded, setIsInfoExpanded] = useState(true)
-
-  // 监听用户登录状态变化，登录后重置计数
-  useEffect(() => {
-    if (user) {
-      setGenerateButtonClickCount(0)
-    }
-  }, [user])
 
   const tones = ["Flirty", "Funny", "Casual"]
 
@@ -148,17 +142,12 @@ export default function PickupLinesPage() {
 
     // 非登录用户点击计数
     if (!user) {
-      const newCount = generateButtonClickCount + 1
-      setGenerateButtonClickCount(newCount)
+      incrementCount()
       
-      if (newCount >= 5) {
+      if (shouldShowSignupModal()) {
         setShowSignupModal(true)
-        // 不重置计数，让用户关闭弹窗后继续计数
         return
       }
-    } else {
-      // 如果用户已登录，重置计数
-      setGenerateButtonClickCount(0)
     }
 
     setIsInfoExpanded(false)
@@ -499,11 +488,11 @@ export default function PickupLinesPage() {
       />
 
       {/* Signup Modal */}
-      <SignupModal
-        isOpen={showSignupModal}
-        onClose={() => setShowSignupModal(false)}
-        onResetCount={() => setGenerateButtonClickCount(0)}
-      />
+              <SignupModal
+          isOpen={showSignupModal}
+          onClose={() => setShowSignupModal(false)}
+          onResetCount={resetCount}
+        />
 
       <Toaster />
 
