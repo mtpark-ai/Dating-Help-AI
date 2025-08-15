@@ -6,8 +6,19 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+/* 默认zoom设置 */
 html {
   zoom: 0.9;
+}
+
+/* Landing page专用zoom */
+.landing-page-zoom {
+  zoom: 1.00;
+}
+
+/* 功能页面专用zoom */
+.function-page-zoom {
+  zoom: 1.00;
 }
 
 @layer utilities {

@@ -88,3 +88,24 @@ export interface OpenAIMessage {
     }
   }>
 }
+
+export interface UserQuestion {
+  id: string
+  email: string
+  question: string
+  status: 'pending' | 'in_progress' | 'answered' | 'closed'
+  admin_response?: string
+  created_at: string
+  updated_at: string
+  admin_updated_at?: string
+}
+
+export interface CreateUserQuestionRequest {
+  email: string
+  question: string
+}
+
+export interface UpdateUserQuestionRequest {
+  status?: 'pending' | 'in_progress' | 'answered' | 'closed'
+  admin_response?: string
+}

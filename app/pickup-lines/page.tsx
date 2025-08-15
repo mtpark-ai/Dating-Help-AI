@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -13,6 +13,9 @@ import Header from "@/components/header"
 import { useToast } from "@/hooks/use-toast"
 import { Toaster } from "@/components/ui/toaster"
 import { clientAPI } from "@/lib/client-api"
+import { FeedbackModal } from "@/components/feedback-modal"
+import { SignupModal } from "@/components/signup-modal"
+import { useAuth } from "@/hooks/use-auth"
 
 interface UploadedImage {
   id: string
@@ -30,9 +33,21 @@ export default function PickupLinesPage() {
   const [regeneratingIndex, setRegeneratingIndex] = useState<number | null>(null)
   const [profileAnalysis, setProfileAnalysis] = useState<any>(null)
   const [showProfileAnalysis, setShowProfileAnalysis] = useState(false)
+  const [copyCount, setCopyCount] = useState(0)
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false)
+  const [showSignupModal, setShowSignupModal] = useState(false)
+  const [generateButtonClickCount, setGenerateButtonClickCount] = useState(0)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
+  const { user } = useAuth()
   const [isInfoExpanded, setIsInfoExpanded] = useState(true)
+
+  // 监听用户登录状态变化，登录后重置计数
+  useEffect(() => {
+    if (user) {
+      setGenerateButtonClickCount(0)
+    }
+  }, [user])
 
   const tones = ["Flirty", "Funny", "Casual"]
 
@@ -83,6 +98,27 @@ export default function PickupLinesPage() {
     setUploadedImages((prev) => prev.filter((img) => img.id !== id))
   }
 
+  const clearAll = () => {
+    setUploadedImages([])
+    setGeneratedReplies([])
+    setCopyCount(0)
+    setProfileAnalysis(null)
+    setShowProfileAnalysis(false)
+    toast({
+      description: (
+        <div className="flex items-center space-x-2">
+          <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center flex-shrink-0">
+            <Check className="w-3 h-3 text-white" />
+          </div>
+          <span className="text-gray-900 text-sm">All content cleared successfully</span>
+        </div>
+      ),
+      duration: 2000,
+      className:
+        "fixed bottom-4 right-4 bg-white border border-gray-200 shadow-lg rounded-lg p-3 w-auto max-w-[280px]",
+    })
+  }
+
   const handleRegenerateReply = async (index: number) => {
     setRegeneratingIndex(index)
 
@@ -108,6 +144,21 @@ export default function PickupLinesPage() {
     if (uploadedImages.length === 0) {
       alert("Please upload at least one screenshot first.")
       return
+    }
+
+    // 非登录用户点击计数
+    if (!user) {
+      const newCount = generateButtonClickCount + 1
+      setGenerateButtonClickCount(newCount)
+      
+      if (newCount >= 5) {
+        setShowSignupModal(true)
+        // 不重置计数，让用户关闭弹窗后继续计数
+        return
+      }
+    } else {
+      // 如果用户已登录，重置计数
+      setGenerateButtonClickCount(0)
     }
 
     setIsInfoExpanded(false)
@@ -150,6 +201,10 @@ export default function PickupLinesPage() {
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text).then(() => {
+      // 增加复制计数
+      const newCopyCount = copyCount + 1
+      setCopyCount(newCopyCount)
+      
       toast({
         description: (
           <div className="flex items-center space-x-2">
@@ -163,16 +218,31 @@ export default function PickupLinesPage() {
         className:
           "fixed bottom-4 right-4 bg-white border border-gray-200 shadow-lg rounded-lg p-3 w-auto max-w-[280px]",
       })
+      
+      // 检查全网站copy次数
+      const globalCopyCount = parseInt(localStorage.getItem('globalCopyCount') || '0') + 1
+      localStorage.setItem('globalCopyCount', globalCopyCount.toString())
+      
+      // 如果全网站copy次数达到5次，显示反馈弹窗
+      if (globalCopyCount >= 5) {
+        setTimeout(() => {
+          setShowFeedbackModal(true)
+        }, 1000) // 延迟1秒显示，让用户先看到复制成功的提示
+      }
     })
   }
 
   return (
-    <div className="bg-gradient-to-br from-pink-50 via-white to-purple-50 flex flex-col overflow-hidden">
+    <div className="relative min-h-svh md:min-h-screen bg-transparent flex flex-col overflow-hidden function-page-zoom">
+      <div
+        className="fixed inset-0 -z-10 bg-gradient-to-br from-pink-50 via-white to-purple-50"
+        aria-hidden="true"
+      />  
       {/* Header */}
       <Header />
 
       <div className="container mx-auto px-4 pt-2 pb-20 flex-1 flex items-center justify-center">
-        <Card className="w-full max-w-5xl bg-white/80 backdrop-blur-sm shadow-xl border-0 rounded-2xl flex flex-col">
+        <Card className="w-full bg-white/80 backdrop-blur-sm shadow-xl border-0 rounded-2xl flex flex-col" style={{ maxWidth: 'calc(64rem * 1.05)' }}>
           {/* Information Section */}
           <CardHeader className="pb-2 flex-shrink-0 cursor-pointer" onClick={() => setIsInfoExpanded(v => !v)}>
             <CardTitle className="text-xl font-bold text-gray-900 flex items-center">
@@ -227,8 +297,16 @@ export default function PickupLinesPage() {
 
           {/* Screenshot Section */}
           <CardContent className="py-3 border-t border-gray-100">
-            <div className="flex items-center mb-3">
+            <div className="flex items-center justify-between mb-3">
               <h3 className="text-lg font-semibold text-gray-900">Profile Screenshots</h3>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={clearAll}
+                className="text-xs px-3 py-1 rounded-lg border-gray-300 hover:bg-gray-50 bg-transparent"
+              >
+                Clear All
+              </Button>
             </div>
 
             <div className="bg-gray-50 rounded-xl p-4 h-72">
@@ -282,7 +360,7 @@ export default function PickupLinesPage() {
                 <div className="space-y-3">
                   {profileAnalysis.summary && (
                     <div className="bg-blue-50 rounded-xl p-3">
-                      <h4 className="text-sm font-medium text-blue-900 mb-2">Summary</h4>
+                      <h4 className="text-sm-medium text-blue-900 mb-2">Summary</h4>
                       <p className="text-sm text-blue-800">{profileAnalysis.summary}</p>
                     </div>
                   )}
@@ -385,6 +463,48 @@ export default function PickupLinesPage() {
           )}
         </Card>
       </div>
+      {/* Feedback Modal */}
+      <FeedbackModal
+        isOpen={showFeedbackModal}
+        onClose={() => setShowFeedbackModal(false)}
+        pageSource="pickup-lines"
+        onSubmit={async (rating, thoughts, followUp, email) => {
+          try {
+            const response = await fetch('/api/user-feedback', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ 
+                rating, 
+                thoughts, 
+                follow_up: followUp, 
+                email,
+                page_source: 'pickup-lines'
+              }),
+            })
+
+            if (response.ok) {
+              console.log('Feedback submitted successfully')
+              setCopyCount(0) // 重置本地复制计数
+              // 重置全网站copy计数
+              localStorage.setItem('globalCopyCount', '0')
+            } else {
+              console.error('Failed to submit feedback')
+            }
+          } catch (error) {
+            console.error('Error submitting feedback:', error)
+          }
+        }}
+      />
+
+      {/* Signup Modal */}
+      <SignupModal
+        isOpen={showSignupModal}
+        onClose={() => setShowSignupModal(false)}
+        onResetCount={() => setGenerateButtonClickCount(0)}
+      />
+
       <Toaster />
 
       <style jsx global>{`

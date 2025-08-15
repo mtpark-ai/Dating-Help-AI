@@ -1,9 +1,9 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { MessageCircle, Camera, Upload, Sparkles, Users, ChevronDown, ChevronUp, Heart } from "lucide-react"
+import { MessageCircle, Camera, Upload, Sparkles, Users, ChevronDown, ChevronUp, Heart, X } from "lucide-react"
 import Header from "@/components/header"
 import type { JSX } from "react/jsx-runtime"
 import Footer from "@/components/footer"
@@ -44,6 +44,67 @@ function FAQItem({ question, answer }: FAQItemProps) {
 }
 
 export default function HomePage() {
+  const [showQuestionModal, setShowQuestionModal] = useState(false)
+  const [showSuccessModal, setShowSuccessModal] = useState(false)
+  const [question, setQuestion] = useState("")
+  const [email, setEmail] = useState("")
+
+  const handleSubmitQuestion = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    try {
+      const response = await fetch('/api/user-questions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ question, email }),
+      })
+
+      if (response.ok) {
+        // 重置表单并关闭弹窗
+        setQuestion("")
+        setEmail("")
+        setShowQuestionModal(false)
+        
+        // 显示成功提示弹窗
+        setShowSuccessModal(true)
+      } else {
+        const errorData = await response.json()
+        alert(`Error: ${errorData.error || 'Failed to submit question'}`)
+      }
+    } catch (error) {
+      console.error('Error submitting question:', error)
+      alert('Error submitting question. Please try again.')
+    }
+  }
+
+  // 点击外部关闭弹窗
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Element
+      if (showQuestionModal && target.closest('.question-modal-backdrop') && !target.closest('.question-modal-content')) {
+        setShowQuestionModal(false)
+      }
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (showQuestionModal && event.key === 'Escape') {
+        setShowQuestionModal(false)
+      }
+    }
+
+    if (showQuestionModal) {
+      document.addEventListener('mousedown', handleClickOutside)
+      document.addEventListener('keydown', handleKeyDown)
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [showQuestionModal])
+
   const faqData = [
     {
       question: "What is Dating Help AI?",
@@ -89,7 +150,7 @@ export default function HomePage() {
 
   return (
     <MobileOptimizer>
-      <div className="min-h-screen bg-gradient-to-br from-pink-50 via-white to-purple-50">
+      <div className="min-h-screen bg-gradient-to-br from-pink-50 via-white to-purple-50 landing-page-zoom">
         {/* Header */}
         <Header />
 
@@ -110,13 +171,12 @@ export default function HomePage() {
             <Card className="bg-white shadow-lg border-0 rounded-2xl overflow-hidden p-4 flex flex-col">
               <CardContent className="p-0 text-center flex flex-col flex-grow">
                 {/* Pickup Lines Image */}
-                <div className="w-full max-w-sm mx-auto h-56 mb-4 relative flex items-center justify-center">
+                <div className="w-full max-w-md mx-auto h-[17rem] mb-4 relative flex items-center justify-center">
                   <Image
-                    src="/images/smart-pickup-lines.webp"
+                    src="/images/Pickup-Lines.webp"
                     alt="AI Pickup Lines Feature"
-                    width={300}
-                    height={200}
-                    className="object-contain max-w-full max-h-full"
+                    fill
+                    className="object-contain"
                     loading="lazy"
                   />
                 </div>
@@ -140,13 +200,12 @@ export default function HomePage() {
             <Card className="bg-white shadow-lg border-0 rounded-2xl overflow-hidden p-4 flex flex-col">
               <CardContent className="p-0 text-center flex flex-col flex-grow">
                 {/* Chat Assistance Image */}
-                <div className="w-full max-w-sm mx-auto h-56 mb-4 relative flex items-center justify-center">
+                <div className="w-full max-w-md mx-auto h-[17rem] mb-4 relative flex items-center justify-center">
                   <Image
-                    src="/images/chat-assistance.webp"
+                    src="/images/Datinghelpai.webp"
                     alt="AI Chat Assistance Feature"
-                    width={300}
-                    height={200}
-                    className="object-contain max-w-full max-h-full"
+                    fill
+                    className="object-contain"
                     loading="lazy"
                   />
                 </div>
@@ -174,14 +233,14 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* Features Section */}
-        <section className="max-w-screen-lg mx-auto px-4 md:px-8 py-12">
+         {/* Features Section */}
+         <section className="max-w-screen-lg mx-auto px-4 md:px-8 py-12">
           <div className="text-center mb-16">
             <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-4">Features</h2>
             <p className="text-base md:text-lg text-gray-600">Your Tinder, Bumble, Hinge Dating App AI Coach</p>
           </div>
 
-          <div className="space-y-16">
+          <div className="space-y-8 md:space-y-12">
             {/* Dating AI Coach */}
             <div className="grid md:grid-cols-2 gap-12 items-center">
               <div>
@@ -197,12 +256,13 @@ export default function HomePage() {
                   invitations.
                 </p>
               </div>
-              <div className="w-full h-48 md:h-64 bg-white rounded-2xl shadow-lg flex items-center justify-center relative">
+              <div className="w-full h-56 md:h-72 flex items-center justify-center relative">
                 <Image
-                  src="/images/ai-coach-updated.webp"
+                  src="/images/Dating-AI-Coach.webp"
                   alt="Dating AI Coach Feature"
-                  fill
-                  className="object-contain p-4"
+                  width={600}
+                  height={450}
+                  className="object-contain max-w-full max-h-full"
                   loading="lazy"
                 />
               </div>
@@ -210,16 +270,7 @@ export default function HomePage() {
 
             {/* AI Pick-up Lines */}
             <div className="grid md:grid-cols-2 gap-12 items-center">
-              <div className="w-full h-48 md:h-64 bg-white rounded-2xl shadow-lg flex items-center justify-center relative md:order-first">
-                <Image
-                  src="/images/smart-pickup-lines.png"
-                  alt="AI Pick-up Lines Feature"
-                  fill
-                  className="object-contain p-4"
-                  loading="lazy"
-                />
-              </div>
-              <div>
+              <div className="md:order-2">
                 <div className="flex items-center mb-6">
                   <div className="w-10 h-10 md:w-12 md:h-12 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-2xl flex items-center justify-center mr-4">
                     <Heart className="w-5 h-5 md:w-6 md:h-6 text-white" />
@@ -230,6 +281,16 @@ export default function HomePage() {
                   Pickup Lines helps you find the best openers and conversation starters for Tinder, Bumble, Hinge,
                   or any Dating App. Easily learn how to break the ice and start great chats with new people.
                 </p>
+              </div>
+              <div className="w-full h-72 md:h-96 flex items-center justify-center relative">
+                <Image
+                  src="/images/Pickup-Lines.webp"
+                  alt="AI Pick-up Lines Feature"
+                  width={600}
+                  height={450}
+                  className="object-contain max-w-full max-h-full"
+                  loading="lazy"
+                />
               </div>
             </div>
 
@@ -248,12 +309,13 @@ export default function HomePage() {
                   your profile better and get more matches.
                 </p>
               </div>
-              <div className="w-full h-48 md:h-64 bg-white rounded-2xl shadow-lg flex items-center justify-center relative">
+              <div className="w-full h-56 md:h-72 flex items-center justify-center relative">
                 <Image
-                  src="/images/profile-review-updated.webp"
+                  src="/images/Dating-Profile Review.webp"
                   alt="Dating Profile Review Feature"
-                  fill
-                  className="object-contain p-4"
+                  width={600}
+                  height={450}
+                  className="object-contain max-w-full max-h-full"
                   loading="lazy"
                 />
               </div>
@@ -261,16 +323,7 @@ export default function HomePage() {
 
             {/* Dating App Photo Generator */}
             <div className="grid md:grid-cols-2 gap-12 items-center">
-              <div className="w-full h-48 md:h-64 bg-white rounded-2xl shadow-lg flex items-center justify-center relative md:order-first">
-                <Image
-                  src="/images/photo-generator-updated.webp"
-                  alt="Dating App Photo Generator Feature"
-                  fill
-                  className="object-contain p-4"
-                  loading="lazy"
-                />
-              </div>
-              <div>
+             <div className="md:order-2">
                 <div className="flex items-center mb-6">
                   <div className="w-10 h-10 md:w-12 md:h-12 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-2xl flex items-center justify-center mr-4">
                     <Camera className="w-5 h-5 md:w-6 md:h-6 text-white" />
@@ -281,6 +334,16 @@ export default function HomePage() {
                   The Dating App Photo Generator helps you create the perfect dating bio photos. Easily get a high-quality
                   dating app photo that looks attractive and helps you get more likes on the dating app.
                 </p>
+              </div>
+              <div className="w-full h-72 md:h-96 flex items-center justify-center relative">
+                <Image
+                  src="/images/Photo generator.webp"
+                  alt="Dating App Photo Generator Feature"
+                  width={600}
+                  height={450}
+                  className="object-contain max-w-full max-h-full"
+                  loading="lazy"
+                />
               </div>
             </div>
           </div>
@@ -381,7 +444,104 @@ export default function HomePage() {
               <FAQItem key={index} question={faq.question} answer={faq.answer} />
             ))}
           </div>
+
+          {/* Ask Question Button */}
+          <div className="text-center mt-12">
+            <Button 
+              onClick={() => setShowQuestionModal(true)}
+              className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-semibold py-3 md:py-2 px-4 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 text-base md:text-sm min-h-[44px] w-full md:w-1/3"
+            >
+              Ask a Question
+            </Button>
+          </div>
         </section>
+
+        {/* Question Modal */}
+        {showQuestionModal && (
+          <div className="question-modal-backdrop fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="question-modal-content bg-white rounded-3xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+              {/* Modal Header */}
+              <div className="flex items-center justify-between px-6 pt-6 pb-1">
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900">Ask a Question</h2>
+                  <p className="text-gray-600 mt-1">We'll get back to you as soon as possible</p>
+                </div>
+                <button
+                  onClick={() => setShowQuestionModal(false)}
+                  className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                >
+                  <X className="w-6 h-6 text-gray-500" />
+                </button>
+              </div>
+
+              {/* Modal Content */}
+              <form onSubmit={handleSubmitQuestion} className="px-6 pb-6 pt-4 space-y-4">
+                {/* Question Input */}
+                <div>
+                  <label htmlFor="question" className="block text-sm font-medium text-gray-900 mb-2 mt-0">
+                    Your question
+                  </label>
+                  <textarea
+                    id="question"
+                    value={question}
+                    onChange={(e) => setQuestion(e.target.value)}
+                    required
+                    rows={3}
+                    placeholder="Type your question here..."
+                    className="w-full px-4 py-3 border border-gray-300 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-gray-900 placeholder-gray-500"
+                  />
+                </div>
+
+                {/* Email Input */}
+                <div>
+                  <label htmlFor="email" className="block text-sm font-medium text-gray-900 mb-2">
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    id="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="your.email@example.com"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 placeholder-gray-500"
+                  />
+                </div>
+
+                {/* Submit Button */}
+                <div className="pt-4">
+                  <Button
+                    type="submit"
+                    disabled={!question.trim()}
+                    className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 disabled:from-gray-300 disabled:to-gray-400 disabled:cursor-not-allowed text-white font-semibold py-4 px-6 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 text-base"
+                  >
+                    Submit Question
+                  </Button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Success Modal */}
+        {showSuccessModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-8 text-center">
+              <div className="w-16 h-16 bg-gradient-to-r from-pink-500 to-purple-500 rounded-full flex items-center justify-center mx-auto mb-6">
+                <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-bold text-gray-900 mb-4">Thank you!</h3>
+              <p className="text-gray-600 mb-6">Thank you for your question! We'll get back to you as soon as possible.</p>
+              <Button
+                onClick={() => setShowSuccessModal(false)}
+                className="bg-pink-100 hover:bg-pink-200 text-pink-600 font-semibold py-3 px-6 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300"
+              >
+                Got it!
+              </Button>
+            </div>
+          </div>
+        )}
 
         {/* Footer */}
         <Footer />

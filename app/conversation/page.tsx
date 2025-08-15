@@ -13,6 +13,9 @@ import { useToast } from "@/hooks/use-toast"
 import { Toaster } from "@/components/ui/toaster"
 import { clientAPI, type Message, ClientAPIError } from "@/lib/client-api"
 import { ErrorBoundary, useErrorHandler } from "@/components/error-boundary"
+import { FeedbackModal } from "@/components/feedback-modal"
+import { SignupModal } from "@/components/signup-modal"
+import { useAuth } from "@/hooks/use-auth"
 
 function ConversationPageContent() {
   const [isInfoExpanded, setIsInfoExpanded] = useState(true)
@@ -24,8 +27,21 @@ function ConversationPageContent() {
   const [regeneratingIndex, setRegeneratingIndex] = useState<number | null>(null)
   const [newMessage, setNewMessage] = useState("")
   const [messageType, setMessageType] = useState<"match" | "user">("match")
+  const [copyCount, setCopyCount] = useState(0)
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false)
+  const [showSignupModal, setShowSignupModal] = useState(false)
+  const [generateButtonClickCount, setGenerateButtonClickCount] = useState(0)
+
   const { toast } = useToast()
   const { handleError } = useErrorHandler()
+  const { user } = useAuth()
+
+  // 监听用户登录状态变化，登录后重置计数
+  useEffect(() => {
+    if (user) {
+      setGenerateButtonClickCount(0)
+    }
+  }, [user])
 
   const tones = ["Flirty", "Funny", "Casual"]
 
@@ -98,13 +114,26 @@ function ConversationPageContent() {
 
   const handleGenerateAnswer = async () => {
     if (conversation.length === 0) {
-      alert("Please add some messages to the conversation first.")
+      alert("Please add at least one message first.")
       return
     }
 
-    // Collapse Information section when Generate Reply is clicked
-    setIsInfoExpanded(false)
+    // 非登录用户点击计数
+    if (!user) {
+      const newCount = generateButtonClickCount + 1
+      setGenerateButtonClickCount(newCount)
+      
+      if (newCount >= 5) {
+        setShowSignupModal(true)
+        // 不重置计数，让用户关闭弹窗后继续计数
+        return
+      }
+    } else {
+      // 如果用户已登录，重置计数
+      setGenerateButtonClickCount(0)
+    }
 
+    setIsInfoExpanded(false)
     setIsGenerating(true)
 
     try {
@@ -179,6 +208,10 @@ function ConversationPageContent() {
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text).then(() => {
+      // 增加复制计数
+      const newCopyCount = copyCount + 1
+      setCopyCount(newCopyCount)
+      
       toast({
         description: (
           <div className="flex items-center space-x-2">
@@ -192,16 +225,32 @@ function ConversationPageContent() {
         className:
           "fixed bottom-4 right-4 bg-white border border-gray-200 shadow-lg rounded-lg p-3 w-auto max-w-[280px]",
       })
+      
+      // 检查全网站copy次数
+      const globalCopyCount = parseInt(localStorage.getItem('globalCopyCount') || '0') + 1
+      localStorage.setItem('globalCopyCount', globalCopyCount.toString())
+      
+      // 如果全网站copy次数达到5次，显示反馈弹窗
+      if (globalCopyCount >= 5) {
+        setTimeout(() => {
+          setShowFeedbackModal(true)
+        }, 1000) // 延迟1秒显示，让用户先看到复制成功的提示
+      }
     })
   }
 
+
+
   return (
-    <div className="bg-gradient-to-br from-pink-50 via-white to-purple-50 flex flex-col overflow-hidden">
+    <div className="relative min-h-svh md:min-h-screen bg-transparent flex flex-col overflow-hidden function-page-zoom">
+      <div
+        className="fixed inset-0 -z-10 bg-gradient-to-br from-pink-50 via-white to-purple-50"
+        aria-hidden="true"
+      />
       {/* Header */}
       <Header />
-
       <div className="container mx-auto px-4 pt-2 pb-20 flex-1 flex items-center justify-center">
-        <Card className="w-full max-w-5xl bg-white/80 backdrop-blur-sm shadow-xl border-0 rounded-2xl flex flex-col">
+        <Card className="w-full bg-white/80 backdrop-blur-sm shadow-xl border-0 rounded-2xl flex flex-col" style={{ maxWidth: 'calc(64rem * 1.05)' }}>
           {/* Information Section */}
           <CardHeader className="pb-2 flex-shrink-0">
             <div
@@ -409,7 +458,7 @@ function ConversationPageContent() {
                     <span>Generating...</span>
                   </div>
                 ) : (
-                  "Generate Reply"
+                  "Generate Answer"
                 )}
               </Button>
             </div>
@@ -457,6 +506,51 @@ function ConversationPageContent() {
           )}
         </Card>
       </div>
+
+
+
+      {/* Feedback Modal */}
+      <FeedbackModal
+        isOpen={showFeedbackModal}
+        onClose={() => setShowFeedbackModal(false)}
+        pageSource="conversation"
+        onSubmit={async (rating, thoughts, followUp, email) => {
+          try {
+            const response = await fetch('/api/user-feedback', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ 
+                rating, 
+                thoughts, 
+                follow_up: followUp, 
+                email,
+                page_source: 'conversation'
+              }),
+            })
+
+            if (response.ok) {
+              console.log('Feedback submitted successfully')
+              setCopyCount(0) // 重置本地复制计数
+              // 重置全网站copy计数
+              localStorage.setItem('globalCopyCount', '0')
+            } else {
+              console.error('Failed to submit feedback')
+            }
+          } catch (error) {
+            console.error('Error submitting feedback:', error)
+          }
+        }}
+      />
+
+      {/* Signup Modal */}
+      <SignupModal
+        isOpen={showSignupModal}
+        onClose={() => setShowSignupModal(false)}
+        onResetCount={() => setGenerateButtonClickCount(0)}
+      />
+
       <Toaster />
     </div>
   )
@@ -469,3 +563,5 @@ export default function ConversationPage() {
     </ErrorBoundary>
   )
 }
+
+
