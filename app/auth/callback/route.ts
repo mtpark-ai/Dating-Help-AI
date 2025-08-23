@@ -18,6 +18,10 @@ export async function GET(req: Request) {
       ? '/signup-success'
       : type === 'recovery'
       ? '/login?reason=password_reset_success'
+      : type === 'google'
+      ? '/login-success?method=google'
+      : type === 'magiclink'
+      ? '/login-success?method=email'
       : '/dashboard')
 
   console.log('Auth callback received:', { code: !!code, error, type, next })

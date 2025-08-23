@@ -135,6 +135,71 @@ class Logger {
       duration
     })
   }
+
+  // Authentication specific logging methods
+  authAttempt(operation: string, email?: string, context?: Record<string, any>): void {
+    this.info(`Auth Attempt: ${operation}`, { 
+      ...context, 
+      type: 'auth_attempt',
+      email: email ? this.maskEmail(email) : undefined,
+      timestamp: new Date().toISOString()
+    })
+  }
+
+  authSuccess(operation: string, userId?: string, email?: string, context?: Record<string, any>): void {
+    this.info(`Auth Success: ${operation}`, { 
+      ...context, 
+      type: 'auth_success',
+      userId,
+      email: email ? this.maskEmail(email) : undefined,
+      timestamp: new Date().toISOString()
+    })
+  }
+
+  authFailure(operation: string, errorCode: string, email?: string, error?: Error, context?: Record<string, any>): void {
+    this.warn(`Auth Failure: ${operation} - ${errorCode}`, { 
+      ...context, 
+      type: 'auth_failure',
+      errorCode,
+      email: email ? this.maskEmail(email) : undefined,
+      error: error?.message,
+      timestamp: new Date().toISOString()
+    })
+  }
+
+  authError(operation: string, error: Error, email?: string, context?: Record<string, any>): void {
+    this.error(`Auth Error: ${operation}`, error, { 
+      ...context, 
+      type: 'auth_error',
+      email: email ? this.maskEmail(email) : undefined,
+      timestamp: new Date().toISOString()
+    })
+  }
+
+  // Security related logging
+  securityEvent(event: string, severity: 'low' | 'medium' | 'high' | 'critical', context?: Record<string, any>): void {
+    const logMethod = severity === 'critical' || severity === 'high' ? 'error' : 
+                     severity === 'medium' ? 'warn' : 'info'
+    
+    this.log(logMethod as LogLevel, `Security Event: ${event}`, { 
+      ...context, 
+      type: 'security_event',
+      severity,
+      timestamp: new Date().toISOString()
+    })
+  }
+
+  // Helper method to mask sensitive information
+  private maskEmail(email: string): string {
+    if (!email || !email.includes('@')) return '[MASKED]'
+    
+    const [local, domain] = email.split('@')
+    if (local.length <= 2) {
+      return `${local[0]}***@${domain}`
+    }
+    
+    return `${local.substring(0, 2)}***@${domain}`
+  }
 }
 
 export const logger = new Logger()

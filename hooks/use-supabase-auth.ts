@@ -4,33 +4,54 @@ import { useState, useEffect, useCallback } from 'react'
 import { User, Session, AuthError } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
 import { Database } from '@/lib/database.types'
+import { handleAuthError, AuthErrorResult } from '@/lib/error-handler'
+import { logger } from '@/lib/logger'
+import type {
+  Profile,
+  SignUpResult,
+  SignInResult,
+  SignOutResult,
+  PasswordResetResult,
+  MagicLinkResult,
+  ProfileUpdateResult,
+  ExtendedAuthHook,
+  ProfileUpdateData
+} from '@/types/auth'
+import { isUser, isSession, isProfile } from '@/types/auth'
 
-type Profile = Database['public']['Tables']['profiles']['Row']
-
-export function useSupabaseAuth() {
+export function useSupabaseAuth(): ExtendedAuthHook {
   const [user, setUser] = useState<User | null>(null)
   const [session, setSession] = useState<Session | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<AuthError | null>(null)
+  const [lastError, setLastError] = useState<AuthErrorResult | null>(null)
 
   // 获取用户 profile 信息
-  const fetchProfile = useCallback(async (userId: string) => {
+  const fetchProfile = useCallback(async (userId: string): Promise<Profile | null> => {
+    logger.authAttempt('fetch_profile', undefined, { userId })
+    
     try {
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
-        .eq('id', userId as any)
+        .eq('id', userId)
         .single()
 
       if (error) {
-        console.error('Error fetching profile:', error)
+        const errorResult = handleAuthError(error, 'fetch_profile', { userId })
+        logger.authError('fetch_profile', errorResult.error!, undefined, errorResult.logContext)
         return null
       }
 
-      return data
+      if (data && isProfile(data)) {
+        logger.authSuccess('fetch_profile', userId)
+        return data
+      }
+      
+      return null
     } catch (err) {
-      console.error('Error fetching profile:', err)
+      const errorResult = handleAuthError(err, 'fetch_profile', { userId })
+      logger.authError('fetch_profile', errorResult.error!, undefined, errorResult.logContext)
       return null
     }
   }, [])
@@ -39,27 +60,34 @@ export function useSupabaseAuth() {
   useEffect(() => {
     // 获取初始会话
     const getInitialSession = async () => {
+      logger.authAttempt('get_initial_session')
+      
       try {
         const { data: { session }, error } = await supabase.auth.getSession()
         
         if (error) {
-          setError(error)
+          const errorResult = handleAuthError(error, 'get_initial_session')
+          logger.authError('get_initial_session', errorResult.error!, undefined, errorResult.logContext)
+          setLastError(errorResult)
           setLoading(false)
           return
         }
 
-        if (session) {
+        if (session && isSession(session)) {
           setSession(session)
           setUser(session.user)
+          logger.authSuccess('get_initial_session', session.user.id, session.user.email)
           
           // 获取用户 profile
           const userProfile = await fetchProfile(session.user.id)
-          setProfile(userProfile as Profile | null)
+          setProfile(userProfile)
         }
         
         setLoading(false)
       } catch (err) {
-        console.error('Error getting initial session:', err)
+        const errorResult = handleAuthError(err, 'get_initial_session')
+        logger.authError('get_initial_session', errorResult.error!, undefined, errorResult.logContext)
+        setLastError(errorResult)
         setLoading(false)
       }
     }
@@ -69,17 +97,23 @@ export function useSupabaseAuth() {
     // 监听认证状态变化
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('Auth state changed:', event, session?.user?.email)
+        logger.authAttempt('auth_state_change', session?.user?.email, { event })
         
-        setSession(session)
-        setUser(session?.user ?? null)
-        
-        if (session?.user) {
+        if (session && isSession(session)) {
+          setSession(session)
+          setUser(session.user)
+          logger.authSuccess('auth_state_change', session.user.id, session.user.email, { event })
+          
           // 获取用户 profile
           const userProfile = await fetchProfile(session.user.id)
-          setProfile(userProfile as Profile | null)
+          setProfile(userProfile)
         } else {
+          setSession(null)
+          setUser(null)
           setProfile(null)
+          if (event === 'SIGNED_OUT') {
+            logger.info('Auth state change: user signed out', { event })
+          }
         }
         
         setLoading(false)
@@ -90,9 +124,10 @@ export function useSupabaseAuth() {
   }, [fetchProfile])
 
   // 注册（如果用户已存在则自动登录）
-  const signUp = useCallback(async (email: string, password: string) => {
+  const signUp = useCallback(async (email: string, password: string): Promise<SignUpResult> => {
+    logger.authAttempt('signup', email)
+    
     try {
-      setError(null)
       setLoading(true)
       
       // 先尝试注册
@@ -110,56 +145,48 @@ export function useSupabaseAuth() {
             error.message.includes('already been registered') ||
             error.message.includes('already exists')) {
           
-          console.log('User already exists, attempting auto login...')
+          logger.authFailure('signup', 'user_exists_attempting_login', email, error)
           
-          // 尝试自动登录 - 使用内联函数避免循环依赖
-          const loginResult = await (async (email: string, password: string) => {
-            try {
-              const { data, error } = await supabase.auth.signInWithPassword({
-                email,
-                password,
-              })
-              
-              if (error) {
-                return { data: null, error }
-              }
-              
-              return { data, error: null }
-            } catch (err) {
-              const authError = err as AuthError
-              return { data: null, error: authError }
-            }
-          })(email, password)
+          // 尝试自动登录
+          const loginResult = await signIn(email, password, false)
           
           if (loginResult.error) {
             // 自动登录失败，返回登录错误
-            setError(loginResult.error)
-            return { data: null, error: loginResult.error, autoLoginAttempted: true }
+            logger.authError('auto_login_after_signup', loginResult.error, email, loginResult.errorResult?.logContext)
+            return { data: null, error: loginResult.error, success: false, autoLoginAttempted: true, errorResult: loginResult.errorResult }
           } else {
             // 自动登录成功
-            return { data: loginResult.data, error: null, autoLoginAttempted: true }
+            logger.authSuccess('auto_login_after_signup', loginResult.data?.user?.id, email)
+            return { data: loginResult.data, error: null, success: true, autoLoginAttempted: true }
           }
         } else {
           // 其他注册错误
-          setError(error)
-          return { data: null, error }
+          const errorResult = handleAuthError(error, 'signup', { email })
+          logger.authError('signup', errorResult.error!, email, errorResult.logContext)
+          setLastError(errorResult)
+          return { data: null, error: errorResult.error, success: false, errorResult }
         }
       }
 
-      return { data, error: null, autoLoginAttempted: false }
+      logger.authSuccess('signup', data.user?.id, email, {
+        requiresConfirmation: data?.user && !data.session
+      })
+      return { data, error: null, success: true, autoLoginAttempted: false }
     } catch (err) {
-      const authError = err as AuthError
-      setError(authError)
-      return { data: null, error: authError, autoLoginAttempted: false }
+      const errorResult = handleAuthError(err, 'signup', { email })
+      logger.authError('signup', errorResult.error!, email, errorResult.logContext)
+      setLastError(errorResult)
+      return { data: null, error: errorResult.error, success: false, autoLoginAttempted: false, errorResult }
     } finally {
       setLoading(false)
     }
   }, [])
 
   // 登录
-  const signIn = useCallback(async (email: string, password: string, rememberMe: boolean = false) => {
+  const signIn = useCallback(async (email: string, password: string, rememberMe: boolean = false): Promise<SignInResult> => {
+    logger.authAttempt('signin', email, { rememberMe })
+    
     try {
-      setError(null)
       setLoading(true)
       
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -168,36 +195,49 @@ export function useSupabaseAuth() {
       })
 
       if (error) {
-        setError(error)
-        return { data: null, error }
+        const errorResult = handleAuthError(error, 'signin', { email, rememberMe })
+        logger.authFailure('signin', errorResult.error!.code, email, errorResult.error || undefined, errorResult.logContext)
+        setLastError(errorResult)
+        return { data: null, error: errorResult.error, success: false, errorResult }
       }
 
       // 如果用户选择记住我，设置会话持久性
       if (rememberMe && data.session) {
-        await supabase.auth.setSession(data.session)
+        try {
+          await supabase.auth.setSession(data.session)
+          logger.info('Session persistence set', { userId: data.user?.id, email })
+        } catch (sessionError) {
+          logger.warn('Failed to set session persistence', { error: sessionError, email })
+        }
       }
 
-      return { data, error: null }
+      logger.authSuccess('signin', data.user?.id, email, { rememberMe })
+      return { data, error: null, success: true }
     } catch (err) {
-      const authError = err as AuthError
-      setError(authError)
-      return { data: null, error: authError }
+      const errorResult = handleAuthError(err, 'signin', { email, rememberMe })
+      logger.authError('signin', errorResult.error!, email, errorResult.logContext)
+      setLastError(errorResult)
+      return { data: null, error: errorResult.error, success: false, errorResult }
     } finally {
       setLoading(false)
     }
   }, [])
 
   // 登出
-  const signOut = useCallback(async () => {
+  const signOut = useCallback(async (): Promise<SignOutResult> => {
+    const currentUser = user
+    logger.authAttempt('signout', currentUser?.email)
+    
     try {
-      setError(null)
       setLoading(true)
       
       const { error } = await supabase.auth.signOut()
       
       if (error) {
-        setError(error)
-        return { error }
+        const errorResult = handleAuthError(error, 'signout', { userId: currentUser?.id })
+        logger.authError('signout', errorResult.error!, currentUser?.email, errorResult.logContext)
+        setLastError(errorResult)
+        return { data: null, error: errorResult.error, success: false, errorResult }
       }
 
       // 清除本地状态
@@ -205,20 +245,23 @@ export function useSupabaseAuth() {
       setSession(null)
       setProfile(null)
       
-      return { error: null }
+      logger.authSuccess('signout', currentUser?.id, currentUser?.email)
+      return { data: null, error: null, success: true }
     } catch (err) {
-      const authError = err as AuthError
-      setError(authError)
-      return { error: authError }
+      const errorResult = handleAuthError(err, 'signout', { userId: currentUser?.id })
+      logger.authError('signout', errorResult.error!, currentUser?.email, errorResult.logContext)
+      setLastError(errorResult)
+      return { data: null, error: errorResult.error, success: false, errorResult }
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [user])
 
   // 重置密码
-  const resetPassword = useCallback(async (email: string) => {
+  const resetPassword = useCallback(async (email: string): Promise<PasswordResetResult> => {
+    logger.authAttempt('reset_password', email)
+    
     try {
-      setError(null)
       setLoading(true)
       
       const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
@@ -226,24 +269,29 @@ export function useSupabaseAuth() {
       })
 
       if (error) {
-        setError(error)
-        return { data: null, error }
+        const errorResult = handleAuthError(error, 'reset_password', { email })
+        logger.authFailure('reset_password', errorResult.error!.code, email, errorResult.error || undefined, errorResult.logContext)
+        setLastError(errorResult)
+        return { data: null, error: errorResult.error, success: false, errorResult }
       }
 
-      return { data, error: null }
+      logger.authSuccess('reset_password', undefined, email)
+      return { data: null, error: null, success: true }
     } catch (err) {
-      const authError = err as AuthError
-      setError(authError)
-      return { data: null, error: authError }
+      const errorResult = handleAuthError(err, 'reset_password', { email })
+      logger.authError('reset_password', errorResult.error!, email, errorResult.logContext)
+      setLastError(errorResult)
+      return { data: null, error: errorResult.error, success: false, errorResult }
     } finally {
       setLoading(false)
     }
   }, [])
 
   // 发送魔法链接
-  const sendMagicLink = useCallback(async (email: string) => {
+  const sendMagicLink = useCallback(async (email: string): Promise<MagicLinkResult> => {
+    logger.authAttempt('send_magic_link', email)
+    
     try {
-      setError(null)
       setLoading(true)
       
       const { data, error } = await supabase.auth.signInWithOtp({
@@ -254,55 +302,72 @@ export function useSupabaseAuth() {
       })
 
       if (error) {
-        setError(error)
-        return { data: null, error }
+        const errorResult = handleAuthError(error, 'send_magic_link', { email })
+        logger.authFailure('send_magic_link', errorResult.error!.code, email, errorResult.error || undefined, errorResult.logContext)
+        setLastError(errorResult)
+        return { data: null, error: errorResult.error, success: false, errorResult }
       }
 
-      return { data, error: null }
+      logger.authSuccess('send_magic_link', undefined, email)
+      return { data: null, error: null, success: true }
     } catch (err) {
-      const authError = err as AuthError
-      setError(authError)
-      return { data: null, error: authError }
+      const errorResult = handleAuthError(err, 'send_magic_link', { email })
+      logger.authError('send_magic_link', errorResult.error!, email, errorResult.logContext)
+      setLastError(errorResult)
+      return { data: null, error: errorResult.error, success: false, errorResult }
     } finally {
       setLoading(false)
     }
   }, [])
 
   // 更新 profile
-  const updateProfile = useCallback(async (updates: Partial<Profile>) => {
-    if (!user) return { data: null, error: new Error('No user logged in') }
+  const updateProfile = useCallback(async (updates: Partial<ProfileUpdateData>): Promise<ProfileUpdateResult> => {
+    if (!user) {
+      const errorResult = handleAuthError(new Error('No user logged in'), 'update_profile')
+      logger.authError('update_profile', errorResult.error!, undefined, errorResult.logContext)
+      return { data: null, error: errorResult.error, success: false, errorResult }
+    }
+
+    logger.authAttempt('update_profile', user.email, { userId: user.id })
 
     try {
-      setError(null)
       setLoading(true)
       
       const { data, error } = await supabase
         .from('profiles')
-        .update(updates as any)
-        .eq('id', user.id as any)
+        .update(updates)
+        .eq('id', user.id)
         .select()
         .single()
 
       if (error) {
-        // 将 PostgrestError 转换为通用错误
-        const genericError = new Error(error.message) as any
-        genericError.status = error.code
-        setError(genericError)
-        return { data: null, error: genericError }
+        const errorResult = handleAuthError(error, 'update_profile', { userId: user.id, updates })
+        logger.authError('update_profile', errorResult.error!, user.email, errorResult.logContext)
+        setLastError(errorResult)
+        return { data: null, error: errorResult.error, success: false, errorResult }
       }
 
       // 更新本地状态
-      setProfile(data as unknown as Profile)
+      if (data && isProfile(data)) {
+        setProfile(data)
+      }
       
-      return { data, error: null }
+      logger.authSuccess('update_profile', user.id, user.email)
+      return { data: data as Profile, error: null, success: true }
     } catch (err) {
-      const authError = err as AuthError
-      setError(authError)
-      return { data: null, error: authError }
+      const errorResult = handleAuthError(err, 'update_profile', { userId: user.id, updates })
+      logger.authError('update_profile', errorResult.error!, user.email, errorResult.logContext)
+      setLastError(errorResult)
+      return { data: null, error: errorResult.error, success: false, errorResult }
     } finally {
       setLoading(false)
     }
   }, [user])
+
+  // Helper method to clear the last error
+  const clearLastError = useCallback(() => {
+    setLastError(null)
+  }, [])
 
   return {
     // 状态
@@ -310,7 +375,7 @@ export function useSupabaseAuth() {
     session,
     profile,
     loading,
-    error,
+    lastError,
     
     // 方法
     signUp,
@@ -319,6 +384,7 @@ export function useSupabaseAuth() {
     resetPassword,
     sendMagicLink,
     updateProfile,
+    clearLastError,
     
     // 计算属性
     isAuthenticated: !!user,

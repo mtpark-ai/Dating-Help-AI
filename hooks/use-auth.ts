@@ -1,30 +1,74 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
-import type { User } from '@supabase/supabase-js'
+import type { User, Session } from '@supabase/supabase-js'
 import { useRouter } from 'next/navigation'
+import { handleAuthError, AuthErrorResult } from '@/lib/error-handler'
+import { logger } from '@/lib/logger'
+import { useAuthLoading } from './use-auth-loading'
+import type { AuthOperation } from '@/types/loading'
+import type {
+  SignUpResult,
+  SignInResult,
+  SignOutResult,
+  PasswordResetResult,
+  MagicLinkResult,
+  BaseAuthHook,
+  EmailPasswordCredentials,
+  EmailOnlyCredentials
+} from '@/types/auth'
+import { isUser, isSession } from '@/types/auth'
 
-export function useAuth() {
+export function useAuth(): BaseAuthHook & {
+  authLoading: ReturnType<typeof useAuthLoading>
+  isLoading: boolean
+  getLoadingState: ReturnType<typeof useAuthLoading>['getOperationState']
+  isOperationLoading: ReturnType<typeof useAuthLoading>['isOperationLoading']
+} {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
+  const [lastError, setLastError] = useState<AuthErrorResult | null>(null)
   const router = useRouter()
+  const authLoading = useAuthLoading()
 
   useEffect(() => {
     // 获取当前用户
     const getUser = async () => {
       try {
-        // 首先尝试从 URL 中获取会话信息
-        const { data: { session } } = await supabase.auth.getSession()
+        logger.authAttempt('get_session')
         
-        if (session) {
+        // 首先尝试从 URL 中获取会话信息
+        const { data: { session }, error } = await supabase.auth.getSession()
+        
+        if (error) {
+          const errorResult = handleAuthError(error, 'get_session')
+          logger.authError('get_session', errorResult.error!, undefined, errorResult.logContext)
+          setLastError(errorResult)
+        }
+        
+        if (session && isSession(session)) {
           setUser(session.user)
-          console.log('Session found from URL:', session.user.email)
+          logger.authSuccess('get_session', session.user.id, session.user.email)
         } else {
           // 如果没有会话，尝试获取用户信息
-          const { data: { user } } = await supabase.auth.getUser()
-          setUser(user)
+          const { data: { user }, error: userError } = await supabase.auth.getUser()
+          
+          if (userError) {
+            const errorResult = handleAuthError(userError, 'get_user')
+            logger.authError('get_user', errorResult.error!, undefined, errorResult.logContext)
+            setLastError(errorResult)
+          }
+          
+          if (user && isUser(user)) {
+            setUser(user)
+            logger.authSuccess('get_user', user.id, user.email)
+          } else {
+            setUser(null)
+          }
         }
       } catch (error) {
-        console.error('Error getting user:', error)
+        const errorResult = handleAuthError(error, 'auth_initialization')
+        logger.authError('auth_initialization', errorResult.error!, undefined, errorResult.logContext)
+        setLastError(errorResult)
       } finally {
         setLoading(false)
       }
@@ -35,12 +79,18 @@ export function useAuth() {
     // 监听认证状态变化
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('Auth state changed:', event, session?.user?.email)
+        logger.authAttempt('auth_state_change', session?.user?.email, { event })
         
         if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-          setUser(session?.user ?? null)
+          if (session && isSession(session) && isUser(session.user)) {
+            setUser(session.user)
+            logger.authSuccess('auth_state_change', session.user.id, session.user.email, { event })
+          } else {
+            setUser(null)
+          }
         } else if (event === 'SIGNED_OUT') {
           setUser(null)
+          logger.info('Auth state change: user signed out', { event })
         }
         
         setLoading(false)
@@ -70,10 +120,11 @@ export function useAuth() {
     }
   }, [])
 
-    const signUp = async (email: string, password: string) => {
+  const signUp = async (email: string, password: string): Promise<SignUpResult> => {
+    logger.authAttempt('signup', email)
+    authLoading.startLoading('signUp', 'Creating your account...')
+    
     try {
-      console.log('Attempting to sign up user:', email)
-      
       // 先尝试注册
       const { data, error } = await supabase.auth.signUp({
         email,
@@ -83,138 +134,270 @@ export function useAuth() {
         },
       })
       
-      console.log('SignUp response:', { data, error })
-      
       if (error) {
-        console.log('SignUp error detected:', error.message)
+        const errorResult = handleAuthError(error, 'signup', { email })
         
         // 如果注册失败，检查是否是用户已存在的错误
         if (error.message.includes('User already registered') || 
             error.message.includes('already been registered') ||
             error.message.includes('already exists')) {
           
-          console.log('User already exists, attempting auto login...')
+          logger.authFailure('signup', 'user_exists_attempting_login', email, error)
           
           // 尝试自动登录
           const loginResult = await signIn(email, password, false)
-          console.log('Auto login result:', loginResult)
           
           if (loginResult.error) {
             // 自动登录失败，返回登录错误
-            console.log('Auto login failed, returning error')
-            return { data: null, error: loginResult.error, autoLoginAttempted: true }
+            logger.authError('auto_login_after_signup', loginResult.error, email, loginResult.errorResult?.logContext)
+            return { data: null, error: loginResult.error, success: false, autoLoginAttempted: true, errorResult: loginResult.errorResult }
           } else {
             // 自动登录成功
-            console.log('Auto login successful')
-            return { data: loginResult.data, error: null, autoLoginAttempted: true }
+            logger.authSuccess('auto_login_after_signup', loginResult.data?.user?.id, email)
+            return { data: loginResult.data, error: null, success: true, autoLoginAttempted: true }
           }
         } else {
           // 其他注册错误
-          console.log('Other signup error, throwing error')
-          throw error
+          logger.authError('signup', errorResult.error!, email, errorResult.logContext)
+          setLastError(errorResult)
+          return { data: null, error: errorResult.error, success: false, autoLoginAttempted: false, errorResult }
         }
       }
       
       // 检查返回的数据，判断用户是否已经存在
       if (data?.user && !data.session) {
         // 如果返回了用户但没有session，说明是新用户注册成功，需要确认邮箱
-        console.log('New user signup successful, email confirmation required')
-        return { data, error: null, autoLoginAttempted: false }
+        logger.authSuccess('signup', data.user.id, email, { requiresConfirmation: true })
+        return { data, error: null, success: true, autoLoginAttempted: false }
       }
       
       // 如果返回了用户和session，说明用户已存在且登录成功
       if (data?.user && data.session) {
-        console.log('Existing user auto login successful')
-        return { data, error: null, autoLoginAttempted: true }
+        logger.authSuccess('signup_with_immediate_login', data.user.id, email)
+        return { data, error: null, success: true, autoLoginAttempted: true }
       }
       
       // 如果没有返回用户数据，但也没有错误，可能是特殊情况
       if (!data?.user) {
-        console.log('No user data returned, but no error either')
-        return { data: null, error: new Error('No user data returned'), autoLoginAttempted: false }
+        const errorResult = handleAuthError(new Error('No user data returned'), 'signup', { email })
+        logger.authError('signup', errorResult.error!, email, errorResult.logContext)
+        setLastError(errorResult)
+        return { data: null, error: errorResult.error, success: false, autoLoginAttempted: false, errorResult }
       }
       
-      console.log('New user signup successful')
-      return { data, error: null, autoLoginAttempted: false }
+      logger.authSuccess('signup', data.user.id, email)
+      return { data, error: null, success: true, autoLoginAttempted: false }
     } catch (error) {
-      console.log('SignUp caught error:', error)
-      return { data: null, error, autoLoginAttempted: false }
+      const errorResult = handleAuthError(error, 'signup', { email })
+      logger.authError('signup', errorResult.error!, email, errorResult.logContext)
+      setLastError(errorResult)
+      return { data: null, error: errorResult.error, success: false, autoLoginAttempted: false, errorResult }
+    } finally {
+      authLoading.finishLoading('signUp')
     }
   }
 
-  const signIn = async (email: string, password: string, rememberMe: boolean = false) => {
+  const signIn = async (email: string, password: string, rememberMe: boolean = false): Promise<SignInResult> => {
+    logger.authAttempt('signin', email, { rememberMe })
+    authLoading.startLoading('signIn', 'Signing you in...')
+    
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       })
       
+      if (error) {
+        const errorResult = handleAuthError(error, 'signin', { email, rememberMe })
+        logger.authFailure('signin', errorResult.error!.code, email, errorResult.error || undefined, errorResult.logContext)
+        setLastError(errorResult)
+        return { data: null, error: errorResult.error, success: false, errorResult }
+      }
+      
       // 如果用户选择记住我，设置session持久性
       if (rememberMe && data.session) {
-        await supabase.auth.setSession(data.session)
+        try {
+          await supabase.auth.setSession(data.session)
+          logger.info('Session persistence set', { userId: data.user?.id, email })
+        } catch (sessionError) {
+          logger.warn('Failed to set session persistence', { error: sessionError, email })
+          // 不阻止登录流程，只是记录警告
+        }
       }
       
-      if (error) throw error
-      
-      return { data, error: null }
+      logger.authSuccess('signin', data.user?.id, email, { rememberMe })
+      return { data, error: null, success: true }
     } catch (error) {
-      // 改进错误处理，提供更详细的错误信息
-      if (error && typeof error === 'object' && 'message' in error) {
-        return { data: null, error }
-      }
-      return { data: null, error: new Error('Unknown error occurred') }
+      const errorResult = handleAuthError(error, 'signin', { email, rememberMe })
+      logger.authError('signin', errorResult.error!, email, errorResult.logContext)
+      setLastError(errorResult)
+      return { data: null, error: errorResult.error, success: false, errorResult }
+    } finally {
+      authLoading.finishLoading('signIn')
     }
   }
 
-  const signOut = async () => {
+  const signOut = async (): Promise<SignOutResult> => {
+    const currentUser = user
+    logger.authAttempt('signout', currentUser?.email)
+    authLoading.startLoading('signOut', 'Signing you out...')
+    
     try {
       const { error } = await supabase.auth.signOut()
-      if (error) throw error
       
+      if (error) {
+        const errorResult = handleAuthError(error, 'signout', { userId: currentUser?.id })
+        logger.authError('signout', errorResult.error!, currentUser?.email, errorResult.logContext)
+        setLastError(errorResult)
+        return { data: null, error: errorResult.error, success: false, errorResult }
+      }
+      
+      logger.authSuccess('signout', currentUser?.id, currentUser?.email)
       router.push('/login')
+      return { data: null, error: null, success: true }
     } catch (error) {
-      console.error('Error signing out:', error)
+      const errorResult = handleAuthError(error, 'signout', { userId: currentUser?.id })
+      logger.authError('signout', errorResult.error!, currentUser?.email, errorResult.logContext)
+      setLastError(errorResult)
+      return { data: null, error: errorResult.error, success: false, errorResult }
+    } finally {
+      authLoading.finishLoading('signOut')
     }
   }
 
-  const resetPassword = async (email: string) => {
+  const resetPassword = async (email: string): Promise<PasswordResetResult> => {
+    logger.authAttempt('reset_password', email)
+    authLoading.startLoading('resetPassword', 'Sending password reset email...')
+    
     try {
+      // Detect environment and set appropriate redirect URL
+      const baseUrl = process.env.NODE_ENV === 'development' 
+        ? 'http://localhost:3000' 
+        : window.location.origin
+        
       const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/auth/callback?type=recovery`,
+        redirectTo: `${baseUrl}/auth/callback?type=recovery`,
       })
       
-      if (error) throw error
+      if (error) {
+        const errorResult = handleAuthError(error, 'reset_password', { email })
+        logger.authFailure('reset_password', errorResult.error!.code, email, errorResult.error || undefined, errorResult.logContext)
+        setLastError(errorResult)
+        return { data: null, error: errorResult.error, success: false, errorResult }
+      }
       
-      return { data, error: null }
+      logger.authSuccess('reset_password', undefined, email)
+      return { data: null, error: null, success: true }
     } catch (error) {
-      return { data: null, error }
+      const errorResult = handleAuthError(error, 'reset_password', { email })
+      logger.authError('reset_password', errorResult.error!, email, errorResult.logContext)
+      setLastError(errorResult)
+      return { data: null, error: errorResult.error, success: false, errorResult }
+    } finally {
+      authLoading.finishLoading('resetPassword')
     }
   }
 
-  const sendMagicLink = async (email: string) => {
+  const sendMagicLink = async (email: string): Promise<MagicLinkResult> => {
+    logger.authAttempt('send_magic_link', email)
+    authLoading.startLoading('sendMagicLink', 'Sending magic link...')
+    
     try {
+      // Detect environment and set appropriate redirect URL
+      const baseUrl = process.env.NODE_ENV === 'development' 
+        ? 'http://localhost:3000' 
+        : window.location.origin
+        
       const { data, error } = await supabase.auth.signInWithOtp({
         email,
         options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback?type=magiclink`,
+          emailRedirectTo: `${baseUrl}/auth/callback?type=magiclink`,
         },
       })
       
-      if (error) throw error
+      if (error) {
+        const errorResult = handleAuthError(error, 'send_magic_link', { email })
+        logger.authFailure('send_magic_link', errorResult.error!.code, email, errorResult.error || undefined, errorResult.logContext)
+        setLastError(errorResult)
+        return { data: null, error: errorResult.error, success: false, errorResult }
+      }
       
-      return { data, error: null }
+      logger.authSuccess('send_magic_link', undefined, email)
+      return { data: null, error: null, success: true }
     } catch (error) {
-      return { data: null, error }
+      const errorResult = handleAuthError(error, 'send_magic_link', { email })
+      logger.authError('send_magic_link', errorResult.error!, email, errorResult.logContext)
+      setLastError(errorResult)
+      return { data: null, error: errorResult.error, success: false, errorResult }
+    } finally {
+      authLoading.finishLoading('sendMagicLink')
     }
+  }
+
+  const signInWithGoogle = async (): Promise<OAuthResult> => {
+    logger.authAttempt('google_oauth', 'anonymous')
+    authLoading.startLoading('signInWithGoogle', 'Connecting with Google...')
+    
+    try {
+      // Detect environment and set appropriate redirect URL
+      const baseUrl = process.env.NODE_ENV === 'development' 
+        ? 'http://localhost:3000' 
+        : window.location.origin
+      
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${baseUrl}/auth/callback?type=google`,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
+        },
+      })
+      
+      if (error) {
+        const errorResult = handleAuthError(error, 'google_oauth')
+        logger.authFailure('google_oauth', errorResult.error!.code, 'anonymous', errorResult.error || undefined, errorResult.logContext)
+        setLastError(errorResult)
+        return { data: null, error: errorResult.error, success: false, errorResult }
+      }
+      
+      logger.authSuccess('google_oauth', 'anonymous')
+      clearLastError()
+      return { data, error: null, success: true, errorResult: null }
+    } catch (error) {
+      const errorResult = handleAuthError(error as any, 'google_oauth')
+      logger.authError('google_oauth', errorResult.error!, 'anonymous', errorResult.logContext)
+      setLastError(errorResult)
+      return { data: null, error: errorResult.error, success: false, errorResult }
+    } finally {
+      authLoading.finishLoading('signInWithGoogle')
+    }
+  }
+
+  // Helper method to clear the last error
+  const clearLastError = () => {
+    setLastError(null)
   }
 
   return {
     user,
     loading,
+    lastError,
     signUp,
     signIn,
     signOut,
     resetPassword,
     sendMagicLink,
+    signInWithGoogle,
+    clearLastError,
+    // Computed properties
+    isAuthenticated: !!user,
+    isGuest: !user,
+    // Loading states
+    authLoading,
+    isLoading: authLoading.loadingStates.globalLoading,
+    getLoadingState: authLoading.getOperationState,
+    isOperationLoading: authLoading.isOperationLoading,
   }
 } 
