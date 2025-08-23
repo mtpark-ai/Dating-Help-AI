@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
-import { supabase } from '@/lib/supabase'
+import { supabase, getSafeUser, hasValidSession } from '@/lib/supabase'
 import type { User, Session } from '@supabase/supabase-js'
 import { useRouter } from 'next/navigation'
-import { handleAuthError, AuthErrorResult } from '@/lib/error-handler'
+import { handleAuthError, AuthErrorResult, isExpectedAuthError } from '@/lib/error-handler'
 import { logger } from '@/lib/logger'
+import { getBaseUrl } from '@/lib/url-helper'
 import { useAuthLoading } from './use-auth-loading'
 import type { AuthOperation } from '@/types/loading'
 import type {
@@ -12,6 +13,7 @@ import type {
   SignOutResult,
   PasswordResetResult,
   MagicLinkResult,
+  OAuthResult,
   BaseAuthHook,
   EmailPasswordCredentials,
   EmailOnlyCredentials
@@ -31,69 +33,135 @@ export function useAuth(): BaseAuthHook & {
   const authLoading = useAuthLoading()
 
   useEffect(() => {
-    // 获取当前用户
-    const getUser = async () => {
+    // 初始化认证状态 - 使用强化的用户获取方法
+    const initializeAuth = async () => {
       try {
-        logger.authAttempt('get_session')
+        logger.authAttempt('auth_initialization')
         
-        // 首先尝试从 URL 中获取会话信息
-        const { data: { session }, error } = await supabase.auth.getSession()
+        // 添加延迟以确保 Supabase 客户端完全初始化（特别是对 Safari）
+        if (typeof window !== 'undefined') {
+          await new Promise(resolve => setTimeout(resolve, 100))
+        }
+        
+        // 使用安全的用户获取方法，永远不会抛出 "Auth session missing" 错误
+        const { user, session, error } = await getSafeUser()
         
         if (error) {
-          const errorResult = handleAuthError(error, 'get_session')
-          logger.authError('get_session', errorResult.error!, undefined, errorResult.logContext)
-          setLastError(errorResult)
+          // 使用新的辅助函数来判断是否是预期的认证错误
+          if (!isExpectedAuthError(error)) {
+            const errorResult = handleAuthError(error, 'auth_initialization')
+            logger.authError('auth_initialization', errorResult.error!, undefined, errorResult.logContext)
+            setLastError(errorResult)
+          } else {
+            // 预期的认证错误对未认证用户是正常的
+            logger.info('No active session found - user not authenticated', {
+              errorType: 'expected_auth_error',
+              errorMessage: error.message
+            })
+          }
         }
         
-        if (session && isSession(session)) {
-          setUser(session.user)
-          logger.authSuccess('get_session', session.user.id, session.user.email)
+        if (user && isUser(user)) {
+          setUser(user)
+          setLastError(null) // 清除之前的错误
+          logger.authSuccess('auth_initialization', user.id, user.email, { 
+            hasSession: !!session,
+            sessionExpiry: session?.expires_at
+          })
         } else {
-          // 如果没有会话，尝试获取用户信息
-          const { data: { user }, error: userError } = await supabase.auth.getUser()
-          
-          if (userError) {
-            const errorResult = handleAuthError(userError, 'get_user')
-            logger.authError('get_user', errorResult.error!, undefined, errorResult.logContext)
-            setLastError(errorResult)
-          }
-          
-          if (user && isUser(user)) {
-            setUser(user)
-            logger.authSuccess('get_user', user.id, user.email)
-          } else {
-            setUser(null)
-          }
+          setUser(null)
+          logger.info('No authenticated user found - initialization complete')
         }
       } catch (error) {
-        const errorResult = handleAuthError(error, 'auth_initialization')
-        logger.authError('auth_initialization', errorResult.error!, undefined, errorResult.logContext)
-        setLastError(errorResult)
+        // 处理任何意外错误
+        if (!isExpectedAuthError(error)) {
+          // 这是一个真正意外的错误
+          const errorResult = handleAuthError(error, 'auth_initialization_unexpected')
+          logger.authError('auth_initialization_unexpected', errorResult.error!, undefined, errorResult.logContext)
+          setLastError(errorResult)
+        } else {
+          // 预期的认证相关错误都视为正常情况（用户未登录）
+          logger.info('Auth initialization completed - treating as unauthenticated', {
+            reason: 'expected_auth_error',
+            errorMessage: error instanceof Error ? error.message : String(error)
+          })
+        }
+        setUser(null)
       } finally {
         setLoading(false)
+        logger.info('Auth initialization completed', { 
+          timestamp: new Date().toISOString(),
+          userAgent: typeof window !== 'undefined' ? navigator.userAgent : 'server'
+        })
       }
     }
 
-    getUser()
+    initializeAuth()
 
-    // 监听认证状态变化
+    // 监听认证状态变化 - 增强版本，更好地处理状态变化
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        logger.authAttempt('auth_state_change', session?.user?.email, { event })
-        
-        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-          if (session && isSession(session) && isUser(session.user)) {
-            setUser(session.user)
-            logger.authSuccess('auth_state_change', session.user.id, session.user.email, { event })
-          } else {
+        try {
+          logger.authAttempt('auth_state_change', session?.user?.email, { event })
+          
+          if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+            if (session && isSession(session) && isUser(session.user)) {
+              setUser(session.user)
+              setLastError(null) // 清除任何之前的错误
+              logger.authSuccess('auth_state_change', session.user.id, session.user.email, { 
+                event, 
+                sessionExpiry: session.expires_at,
+                tokenType: session.token_type 
+              })
+            } else {
+              // 会话数据不完整或无效
+              setUser(null)
+              logger.warn('Auth state change: incomplete session data', { 
+                event, 
+                hasSession: !!session, 
+                hasUser: !!session?.user 
+              })
+            }
+          } else if (event === 'SIGNED_OUT') {
             setUser(null)
+            setLastError(null) // 退出时清除错误
+            logger.info('Auth state change: user signed out', { event })
+          } else if (event === 'USER_UPDATED') {
+            // 处理用户更新（邮箱确认、资料更改等）
+            if (session && isSession(session) && isUser(session.user)) {
+              setUser(session.user)
+              setLastError(null) // 用户更新成功时清除错误
+              logger.authSuccess('user_updated', session.user.id, session.user.email, { event })
+            } else {
+              // 用户更新但会话无效，可能是部分更新
+              logger.warn('User updated but session invalid', { event, hasSession: !!session })
+            }
+          } else if (event === 'PASSWORD_RECOVERY') {
+            logger.info('Password recovery initiated', { event })
+          } else {
+            // 处理其他认证事件
+            logger.info('Auth state change: unknown event', { event, hasSession: !!session })
           }
-        } else if (event === 'SIGNED_OUT') {
-          setUser(null)
-          logger.info('Auth state change: user signed out', { event })
+          
+          setLoading(false)
+        } catch (error) {
+          // 处理认证状态变化中的任何错误
+          logger.error('Error in auth state change handler', error, { 
+            event, 
+            hasSession: !!session,
+            errorMessage: error instanceof Error ? error.message : String(error)
+          })
+          
+          // 确保在错误情况下不会卡在加载状态
+          setLoading(false)
+          
+          // 如果是严重错误，清除用户状态
+          if (error instanceof Error && !error.message.toLowerCase().includes('session')) {
+            setUser(null)
+            const errorResult = handleAuthError(error, 'auth_state_change')
+            setLastError(errorResult)
+          }
         }
-        
-        setLoading(false)
       }
     )
 
@@ -142,7 +210,7 @@ export function useAuth(): BaseAuthHook & {
             error.message.includes('already been registered') ||
             error.message.includes('already exists')) {
           
-          logger.authFailure('signup', 'user_exists_attempting_login', email, error)
+          logger.authFailure('signup', 'user_exists_attempting_login', email, error as Error)
           
           // 尝试自动登录
           const loginResult = await signIn(email, password, false)
@@ -270,10 +338,8 @@ export function useAuth(): BaseAuthHook & {
     authLoading.startLoading('resetPassword', 'Sending password reset email...')
     
     try {
-      // Detect environment and set appropriate redirect URL
-      const baseUrl = process.env.NODE_ENV === 'development' 
-        ? 'http://localhost:3000' 
-        : window.location.origin
+      // Use robust environment detection from url-helper
+      const baseUrl = getBaseUrl(typeof window !== 'undefined' ? window.location.host : undefined)
         
       const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${baseUrl}/auth/callback?type=recovery`,
@@ -303,10 +369,8 @@ export function useAuth(): BaseAuthHook & {
     authLoading.startLoading('sendMagicLink', 'Sending magic link...')
     
     try {
-      // Detect environment and set appropriate redirect URL
-      const baseUrl = process.env.NODE_ENV === 'development' 
-        ? 'http://localhost:3000' 
-        : window.location.origin
+      // Use robust environment detection from url-helper
+      const baseUrl = getBaseUrl(typeof window !== 'undefined' ? window.location.host : undefined)
         
       const { data, error } = await supabase.auth.signInWithOtp({
         email,
@@ -339,10 +403,8 @@ export function useAuth(): BaseAuthHook & {
     authLoading.startLoading('signInWithGoogle', 'Connecting with Google...')
     
     try {
-      // Detect environment and set appropriate redirect URL
-      const baseUrl = process.env.NODE_ENV === 'development' 
-        ? 'http://localhost:3000' 
-        : window.location.origin
+      // Use robust environment detection from url-helper
+      const baseUrl = getBaseUrl(typeof window !== 'undefined' ? window.location.host : undefined)
       
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
@@ -352,6 +414,8 @@ export function useAuth(): BaseAuthHook & {
             access_type: 'offline',
             prompt: 'consent',
           },
+          skipBrowserRedirect: false,
+          scopes: 'email profile',
         },
       })
       
@@ -367,7 +431,7 @@ export function useAuth(): BaseAuthHook & {
       return { data, error: null, success: true, errorResult: null }
     } catch (error) {
       const errorResult = handleAuthError(error as any, 'google_oauth')
-      logger.authError('google_oauth', errorResult.error!, 'anonymous', errorResult.logContext)
+      logger.authError('google_oauth', errorResult.error!, 'anonymous', errorResult.logContext || undefined)
       setLastError(errorResult)
       return { data: null, error: errorResult.error, success: false, errorResult }
     } finally {

@@ -36,6 +36,7 @@ export interface SignInResult extends AuthOperationResult<{ user: User | null; s
 export interface SignOutResult extends AuthOperationResult<null> {}
 export interface PasswordResetResult extends AuthOperationResult<null> {}
 export interface MagicLinkResult extends AuthOperationResult<null> {}
+export interface OAuthResult extends AuthOperationResult<{ url?: string }> {}
 export interface ProfileUpdateResult extends AuthOperationResult<Profile> {}
 
 // Authentication state interface
@@ -89,6 +90,7 @@ export interface BaseAuthHook {
   signOut: () => Promise<SignOutResult>
   resetPassword: (email: string) => Promise<PasswordResetResult>
   sendMagicLink: (email: string) => Promise<MagicLinkResult>
+  signInWithGoogle: () => Promise<OAuthResult>
   clearLastError: () => void
   
   // Computed properties
@@ -96,14 +98,6 @@ export interface BaseAuthHook {
   isGuest: boolean
 }
 
-export interface ExtendedAuthHook extends BaseAuthHook {
-  // Additional state
-  session: Session | null
-  profile: Profile | null
-  
-  // Additional methods
-  updateProfile: (updates: Partial<ProfileUpdateData>) => Promise<ProfileUpdateResult>
-}
 
 // Type guards for authentication state validation
 export const isUser = (value: unknown): value is User => {

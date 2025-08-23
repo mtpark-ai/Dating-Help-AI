@@ -4,7 +4,17 @@
  */
 
 export function getBaseUrl(host?: string): string {
-  // 检测环境
+  // 在客户端，优先使用当前窗口的origin
+  if (typeof window !== 'undefined') {
+    return window.location.origin
+  }
+  
+  // 服务器端：优先使用明确设置的APP_URL环境变量
+  if (process.env.NEXT_PUBLIC_APP_URL) {
+    return process.env.NEXT_PUBLIC_APP_URL
+  }
+  
+  // 检测环境（服务器端）
   const isDevelopment = process.env.NODE_ENV === 'development'
   const isLocalhost = host?.includes('localhost') || host?.includes('127.0.0.1')
   const isProduction = !isDevelopment && !isLocalhost

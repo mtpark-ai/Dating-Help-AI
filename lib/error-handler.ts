@@ -127,7 +127,19 @@ export class AuthSignupDisabledError extends AuthError {
 
 export class AuthSessionExpiredError extends AuthError {
   constructor(context?: Record<string, any>) {
-    super('Your session has expired. Please log in again', ErrorCode.AUTH_SESSION_EXPIRED, 401, context)
+    // Provide different messages based on context
+    const reason = context?.reason
+    let message = 'Your session has expired. Please log in again'
+    
+    if (reason === 'session_missing') {
+      message = 'Please sign in to continue'
+    } else if (reason === 'session_expired') {
+      message = 'Your session has expired. Please sign in again'
+    } else if (reason === 'session_invalid') {
+      message = 'Your session is invalid. Please sign in again'
+    }
+    
+    super(message, ErrorCode.AUTH_SESSION_EXPIRED, 401, context)
   }
 }
 
@@ -349,7 +361,8 @@ export function mapSupabaseAuthError(error: any): AuthError {
   }
 
   if (message.includes('session') && 
-      (message.includes('expired') || message.includes('invalid'))) {
+      (message.includes('expired') || message.includes('invalid') || 
+       message.includes('missing') || message.includes('not found'))) {
     return new AuthSessionExpiredError(context)
   }
 
@@ -360,6 +373,20 @@ export function mapSupabaseAuthError(error: any): AuthError {
 
   if (message.includes('rate limit') || message.includes('too many')) {
     return new AuthRateLimitedError(context)
+  }
+
+  // Handle specific "Auth session missing" and related cases
+  if (message.includes('auth session missing') || 
+      message.includes('session missing') ||
+      message.includes('no session found') ||
+      message.includes('session not found') ||
+      message.includes('no active session')) {
+    return new AuthSessionExpiredError({
+      ...context,
+      reason: 'session_missing',
+      userFriendlyMessage: 'Please sign in to continue',
+      isExpectedError: true // Mark this as an expected error, not a real problem
+    })
   }
 
   // Default to generic auth error
@@ -439,13 +466,13 @@ export function getUserFriendlyMessage(error: AuthError): string {
     [ErrorCode.AUTH_EMAIL_ALREADY_EXISTS]: 'An account with this email already exists. Please try signing in instead.',
     [ErrorCode.AUTH_WEAK_PASSWORD]: 'Please choose a stronger password with at least 8 characters.',
     [ErrorCode.AUTH_SIGNUP_DISABLED]: 'New account registration is temporarily disabled. Please try again later.',
-    [ErrorCode.AUTH_SESSION_EXPIRED]: 'Your session has expired. Please sign in again to continue.',
+    [ErrorCode.AUTH_SESSION_EXPIRED]: error.context?.userFriendlyMessage || 'Please sign in to continue.',
     [ErrorCode.AUTH_TOKEN_INVALID]: 'Your authentication token is invalid. Please sign in again.',
     [ErrorCode.AUTH_RATE_LIMITED]: 'Too many attempts. Please wait a few minutes before trying again.',
     [ErrorCode.AUTH_PROFILE_UPDATE_FAILED]: 'Unable to update your profile. Please try again.',
     [ErrorCode.AUTH_PASSWORD_RESET_FAILED]: 'Unable to send password reset email. Please verify your email address.',
     [ErrorCode.AUTH_MAGIC_LINK_FAILED]: 'Unable to send magic link. Please verify your email address.',
-    [ErrorCode.AUTHENTICATION_ERROR]: 'Authentication failed. Please try again.',
+    [ErrorCode.AUTHENTICATION_ERROR]: 'Please sign in to access this feature.',
     [ErrorCode.AUTHORIZATION_ERROR]: 'You do not have permission to access this resource.',
     [ErrorCode.VALIDATION_ERROR]: 'Please check your input and try again.',
     [ErrorCode.NOT_FOUND]: 'The requested resource was not found.',
@@ -458,6 +485,27 @@ export function getUserFriendlyMessage(error: AuthError): string {
   }
 
   return friendlyMessages[error.code] || 'An unexpected error occurred. Please try again.'
+}
+
+// Helper function to determine if an error is actually expected (user not authenticated)
+export function isExpectedAuthError(error: unknown): boolean {
+  if (!error) return false
+  
+  const message = (error instanceof Error ? error.message : String(error)).toLowerCase()
+  
+  return message.includes('session missing') ||
+         message.includes('auth session missing') ||
+         message.includes('no session found') ||
+         message.includes('session not found') ||
+         message.includes('no active session') ||
+         message.includes('session expired') ||
+         message.includes('not authenticated') ||
+         message.includes('no user found') ||
+         (message.includes('session') && (
+           message.includes('invalid') || 
+           message.includes('expired') || 
+           message.includes('missing')
+         ))
 }
 
 export async function withRetry<T>(
