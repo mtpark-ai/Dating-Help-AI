@@ -20,7 +20,6 @@ export async function GET(
     const isProduction = !isDevelopment && !isLocalhost
     
     const baseUrl = isProduction ? 'https://www.datinghelpai.com' : `http://${request.headers.get('host')}`
-    
     // 根据环境选择不同的代理策略
     let proxyUrl: string
     let proxyType: string
