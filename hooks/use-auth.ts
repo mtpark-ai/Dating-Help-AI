@@ -44,7 +44,43 @@ export function useAuth(): BaseAuthHook & {
         }
         
         // 使用安全的用户获取方法，永远不会抛出 "Auth session missing" 错误
+        console.log('🔍 Calling getSafeUser during auth initialization...')
         const { user, session, error } = await getSafeUser()
+        console.log('📥 getSafeUser result:', {
+          hasUser: !!user,
+          userId: user?.id,
+          userEmail: user?.email,
+          hasSession: !!session,
+          hasError: !!error,
+          errorMessage: error?.message
+        })
+        
+        // BACKUP: If getSafeUser fails with "Auth session missing!", try getSession() directly
+        if (!user && error?.message?.includes('Auth session missing!')) {
+          console.log('🔄 Fallback: Trying getSession() directly...')
+          try {
+            const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+            console.log('📥 Fallback getSession() result:', {
+              hasSession: !!session,
+              hasUser: !!session?.user,
+              userId: session?.user?.id,
+              userEmail: session?.user?.email,
+              sessionError: sessionError?.message
+            })
+            
+            if (session && session.user && !sessionError) {
+              console.log('✅ Fallback: Found valid session, using session user')
+              // Use the session user as fallback
+              setUser(session.user)
+              setLastError(null)
+              logger.authSuccess('auth_initialization_fallback', session.user.id, session.user.email)
+              setLoading(false)
+              return // Early return since we found the user
+            }
+          } catch (sessionErr) {
+            console.log('❌ Fallback getSession() error:', sessionErr)
+          }
+        }
         
         if (error) {
           // 使用新的辅助函数来判断是否是预期的认证错误
@@ -61,7 +97,17 @@ export function useAuth(): BaseAuthHook & {
           }
         }
         
+        console.log('🔍 Auth initialization result:', {
+          hasUser: !!user,
+          userId: user?.id,
+          userEmail: user?.email,
+          hasSession: !!session,
+          sessionExpiry: session?.expires_at,
+          isValidUser: user ? isUser(user) : false
+        })
+        
         if (user && isUser(user)) {
+          console.log('✅ Setting user state:', { userId: user.id, email: user.email })
           setUser(user)
           setLastError(null) // 清除之前的错误
           logger.authSuccess('auth_initialization', user.id, user.email, { 
@@ -69,6 +115,10 @@ export function useAuth(): BaseAuthHook & {
             sessionExpiry: session?.expires_at
           })
         } else {
+          console.log('❌ No valid user found during initialization', { 
+            user: !!user, 
+            isValidUser: user ? isUser(user) : false 
+          })
           setUser(null)
           logger.info('No authenticated user found - initialization complete')
         }
@@ -102,10 +152,25 @@ export function useAuth(): BaseAuthHook & {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         try {
+          console.log('🔄 Auth state change detected:', {
+            event,
+            hasSession: !!session,
+            hasUser: !!session?.user,
+            userId: session?.user?.id,
+            userEmail: session?.user?.email,
+            isValidSession: session ? isSession(session) : false,
+            isValidUser: session?.user ? isUser(session.user) : false
+          })
+          
           logger.authAttempt('auth_state_change', session?.user?.email, { event })
           
           if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
             if (session && isSession(session) && isUser(session.user)) {
+              console.log('✅ Auth state change: Setting user from session', {
+                userId: session.user.id,
+                email: session.user.email,
+                event
+              })
               setUser(session.user)
               setLastError(null) // 清除任何之前的错误
               logger.authSuccess('auth_state_change', session.user.id, session.user.email, { 
@@ -115,6 +180,13 @@ export function useAuth(): BaseAuthHook & {
               })
             } else {
               // 会话数据不完整或无效
+              console.log('❌ Auth state change: Incomplete session data', { 
+                event, 
+                hasSession: !!session, 
+                hasUser: !!session?.user,
+                isValidSession: session ? isSession(session) : false,
+                isValidUser: session?.user ? isUser(session.user) : false
+              })
               setUser(null)
               logger.warn('Auth state change: incomplete session data', { 
                 event, 
@@ -123,23 +195,31 @@ export function useAuth(): BaseAuthHook & {
               })
             }
           } else if (event === 'SIGNED_OUT') {
+            console.log('🚪 Auth state change: User signed out')
             setUser(null)
             setLastError(null) // 退出时清除错误
             logger.info('Auth state change: user signed out', { event })
           } else if (event === 'USER_UPDATED') {
             // 处理用户更新（邮箱确认、资料更改等）
             if (session && isSession(session) && isUser(session.user)) {
+              console.log('🔄 Auth state change: User updated', {
+                userId: session.user.id,
+                email: session.user.email
+              })
               setUser(session.user)
               setLastError(null) // 用户更新成功时清除错误
               logger.authSuccess('user_updated', session.user.id, session.user.email, { event })
             } else {
               // 用户更新但会话无效，可能是部分更新
+              console.log('❌ Auth state change: User updated but session invalid')
               logger.warn('User updated but session invalid', { event, hasSession: !!session })
             }
           } else if (event === 'PASSWORD_RECOVERY') {
+            console.log('🔑 Auth state change: Password recovery initiated')
             logger.info('Password recovery initiated', { event })
           } else {
             // 处理其他认证事件
+            console.log('❓ Auth state change: Unknown event', { event, hasSession: !!session })
             logger.info('Auth state change: unknown event', { event, hasSession: !!session })
           }
           
@@ -528,6 +608,18 @@ export function useAuth(): BaseAuthHook & {
   const clearLastError = () => {
     setLastError(null)
   }
+
+  // Add debug logging for return state
+  console.log('🏠 useAuth returning state:', {
+    hasUser: !!user,
+    userId: user?.id,
+    userEmail: user?.email,
+    loading,
+    isAuthenticated: !!user,
+    isGuest: !user,
+    globalLoading: authLoading.loadingStates.globalLoading,
+    timestamp: new Date().toISOString()
+  })
 
   return {
     user,

@@ -8,7 +8,17 @@ import { UserAvatar } from "@/components/user-avatar"
 
 export default function Header() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
-  const { user } = useAuth()
+  const { user, loading, isAuthenticated } = useAuth()
+  
+  // Debug logging for header
+  console.log('🔗 Header component state:', {
+    hasUser: !!user,
+    userId: user?.id,
+    userEmail: user?.email,
+    loading,
+    isAuthenticated,
+    timestamp: new Date().toISOString()
+  })
 
   return (
     <header className="w-full py-4 md:py-6 px-4 md:px-8">

@@ -19,161 +19,103 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
     detectSessionInUrl: true,
     // 添加更多会话管理选项
     flowType: 'pkce',
-    // Enhanced Safari-compatible storage configuration with PKCE protection
+    // 添加调试信息
+    debug: process.env.NODE_ENV === 'development',
+    // Simplified storage configuration - let Supabase handle most storage logic
     storage: typeof window !== 'undefined' ? {
       getItem: (key: string) => {
+        const isPkceKey = key.includes('code-verifier') || key.includes('pkce')
+        const isSessionKey = key.includes('session') || key.includes('token')
+        
+        if (isPkceKey) {
+          console.log(`🔍 PKCE storage get: ${key}`)
+        }
+        if (isSessionKey) {
+          console.log(`🔍 Session storage get: ${key}`)
+        }
+        
+        // Simple fallback chain
         try {
-          // Try localStorage first
           const localValue = localStorage.getItem(key)
-          if (localValue) {
-            // Special handling for PKCE code verifier
-            if (key.includes('code-verifier') || key.includes('pkce')) {
-              console.log(`PKCE storage get: ${key} found in localStorage (length: ${localValue.length})`)
-            }
+          if (localValue !== null) {
+            if (isPkceKey) console.log(`✅ PKCE found in localStorage`)
+            if (isSessionKey) console.log(`✅ Session found in localStorage`)
             return localValue
           }
-          
-          // Fallback to sessionStorage for Safari private mode
+        } catch (e) {
+          console.warn(`localStorage failed for ${key}:`, e)
+        }
+        
+        try {
           const sessionValue = sessionStorage.getItem(key)
-          if (sessionValue) {
-            if (key.includes('code-verifier') || key.includes('pkce')) {
-              console.log(`PKCE storage get: ${key} found in sessionStorage (length: ${sessionValue.length})`)
-            }
+          if (sessionValue !== null) {
+            if (isPkceKey) console.log(`✅ PKCE found in sessionStorage`)
+            if (isSessionKey) console.log(`✅ Session found in sessionStorage`)
             return sessionValue
           }
-          
-          // Check if we have cookies as a last resort (Safari strict mode)
-          const cookieValue = document.cookie
-            .split('; ')
-            .find(row => row.startsWith(`${key}=`))
-            ?.split('=')[1]
-          
-          if (cookieValue) {
-            try {
-              // Decode cookie value if it was encoded
-              const decodedValue = decodeURIComponent(cookieValue)
-              if (key.includes('code-verifier') || key.includes('pkce')) {
-                console.log(`PKCE storage get: ${key} found in cookies (length: ${decodedValue.length})`)
-              }
-              return decodedValue
-            } catch (decodeError) {
-              console.warn(`Failed to decode cookie ${key}:`, decodeError)
-              return cookieValue
-            }
-          }
-          
-          return null
-        } catch (error) {
-          console.error(`Storage get error for ${key}:`, error)
-          // If all storage methods fail, try sessionStorage only
-          try {
-            return sessionStorage.getItem(key)
-          } catch {
-            console.warn(`Unable to get item ${key} from any storage method`)
-            return null
-          }
+        } catch (e) {
+          console.warn(`sessionStorage failed for ${key}:`, e)
         }
+        
+        if (isPkceKey || isSessionKey) {
+          console.log(`❌ ${isPkceKey ? 'PKCE' : 'Session'} not found in any storage`)
+        }
+        
+        return null
       },
       setItem: (key: string, value: string) => {
-        let stored = false
         const isPkceKey = key.includes('code-verifier') || key.includes('pkce')
+        const isSessionKey = key.includes('session') || key.includes('token')
         
         if (isPkceKey) {
-          console.log(`PKCE storage set: Storing ${key} (length: ${value.length})`)
+          console.log(`🔐 PKCE storage set: ${key} (${value.length} chars)`)
+        }
+        if (isSessionKey) {
+          console.log(`🔐 Session storage set: ${key} (${value.length} chars)`)
         }
         
-        // Try localStorage first
+        // Always try localStorage first
         try {
           localStorage.setItem(key, value)
-          stored = true
+          if (isPkceKey) console.log(`✅ PKCE stored in localStorage`)
+          if (isSessionKey) console.log(`✅ Session stored in localStorage`)
+          
+          // For PKCE, also store in cookies for server access
           if (isPkceKey) {
-            console.log(`PKCE storage set: ${key} stored successfully in localStorage`)
-          }
-        } catch (localError) {
-          console.warn(`localStorage failed for ${key}:`, localError instanceof Error ? localError.message : String(localError))
-          if (isPkceKey) {
-            console.error(`CRITICAL: PKCE localStorage failed for ${key}:`, localError)
-          }
-        }
-        
-        // Try sessionStorage as fallback
-        if (!stored) {
-          try {
-            sessionStorage.setItem(key, value)
-            stored = true
-            if (isPkceKey) {
-              console.log(`PKCE storage set: ${key} stored successfully in sessionStorage (fallback)`)
-            }
-          } catch (sessionError) {
-            console.warn(`sessionStorage failed for ${key}:`, sessionError instanceof Error ? sessionError.message : String(sessionError))
-            if (isPkceKey) {
-              console.error(`CRITICAL: PKCE sessionStorage fallback failed for ${key}:`, sessionError)
+            try {
+              const maxAge = 60 * 60 // 1 hour
+              const secure = process.env.NODE_ENV === 'production' ? 'secure; ' : ''
+              document.cookie = `${key}=${encodeURIComponent(value)}; path=/; max-age=${maxAge}; ${secure}samesite=lax`
+              console.log(`✅ PKCE also stored in cookies for server`)
+            } catch (e) {
+              console.warn(`PKCE cookie storage failed:`, e)
             }
           }
+          
+          return
+        } catch (e) {
+          console.warn(`localStorage failed for ${key}:`, e)
         }
         
-        // For PKCE code verifiers, ALWAYS store in cookies for server access
-        if (isPkceKey) {
-          try {
-            // Store PKCE code verifier in cookies so server can access it
-            const maxAge = 60 * 60 // 1 hour for PKCE
-            const cookieOptions = process.env.NODE_ENV === 'development' 
-              ? `path=/; max-age=${maxAge}; samesite=lax`
-              : `path=/; max-age=${maxAge}; secure; samesite=lax`
-            
-            document.cookie = `${key}=${encodeURIComponent(value)}; ${cookieOptions}`
-            console.log(`PKCE storage set: ${key} stored in cookies for server access`)
-          } catch (cookieError) {
-            console.error(`CRITICAL: PKCE cookie storage failed for ${key}:`, cookieError)
-            // If cookie storage fails for PKCE, this could cause auth failures
-            if (!stored) {
-              throw new Error(`PKCE cookie storage failed: ${cookieError}`)
-            }
-          }
-        }
-        
-        // For Safari in strict mode, try to store minimal session info in cookies
-        if (!stored && key.includes('session')) {
-          try {
-            // Only store essential session data in cookies (not the full session object)
-            const sessionData = JSON.parse(value)
-            if (sessionData?.access_token) {
-              // Store a simplified session indicator
-              document.cookie = `${key}_exists=true; path=/; max-age=${60 * 60 * 24}` // 24 hours
-            }
-          } catch (cookieError) {
-            console.warn('Cookie fallback failed:', cookieError instanceof Error ? cookieError.message : String(cookieError))
-          }
-        }
-        
-        if (!stored) {
-          const errorMsg = `Unable to persist ${key}: all storage methods failed`
-          console.warn(errorMsg)
-          if (isPkceKey) {
-            console.error(`CRITICAL PKCE ERROR: ${errorMsg}`)
-            // 抛出错误以便上层处理
-            throw new Error(`PKCE storage failed: ${errorMsg}`)
-          }
+        // Fallback to sessionStorage
+        try {
+          sessionStorage.setItem(key, value)
+          if (isPkceKey) console.log(`✅ PKCE stored in sessionStorage (fallback)`)
+          if (isSessionKey) console.log(`✅ Session stored in sessionStorage (fallback)`)
+        } catch (e) {
+          console.error(`All storage methods failed for ${key}:`, e)
         }
       },
       removeItem: (key: string) => {
         try {
           localStorage.removeItem(key)
-        } catch {
-          // Silent fail
-        }
-        
-        try {
           sessionStorage.removeItem(key)
-        } catch {
-          // Silent fail
-        }
-        
-        // Clean up cookie indicator if it exists
-        try {
-          document.cookie = `${key}_exists=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT`
-        } catch {
-          // Silent fail
+          // Clean up PKCE cookies if any
+          if (key.includes('code-verifier') || key.includes('pkce')) {
+            document.cookie = `${key}=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT`
+          }
+        } catch (e) {
+          console.warn(`Failed to remove ${key}:`, e)
         }
       }
     } : undefined
@@ -265,30 +207,47 @@ function isSessionExpired(session: any): boolean {
 // Safe user retrieval using secure getUser() method
 export async function getSafeUser() {
   try {
+    console.log('🔍 getSafeUser: Starting user retrieval...')
+    
     // Use secure getUser() method instead of getSession() for user authentication
     const { data: { user }, error: userError } = await supabase.auth.getUser()
+    
+    console.log('🔍 getSafeUser: getUser() result:', {
+      hasUser: !!user,
+      userId: user?.id,
+      userEmail: user?.email,
+      hasError: !!userError,
+      errorMessage: userError?.message,
+      errorName: userError?.name
+    })
     
     if (userError) {
       // Filter out expected auth-related errors that aren't actually errors
       const errorMessage = userError.message?.toLowerCase() || ''
-      if (errorMessage.includes('session') || 
-          errorMessage.includes('missing') || 
-          errorMessage.includes('not found') ||
-          errorMessage.includes('expired') ||
-          errorMessage.includes('jwt') ||
+      console.log('🔍 getSafeUser: Checking if error is expected:', { errorMessage })
+      
+      // Be more specific about which errors we consider "expected"
+      if (errorMessage === 'auth session missing!' || 
+          errorMessage.includes('no jwt') ||
+          errorMessage.includes('jwt malformed') ||
           errorMessage.includes('invalid_token')) {
         // These are expected for unauthenticated users, not real errors
+        console.log('✅ getSafeUser: Expected auth error, returning null user')
         return { user: null, session: null, error: null }
       }
       
-      console.warn('Unexpected user authentication error:', userError.message)
+      // For other errors, including potential temporary network issues, return the error
+      console.warn('❌ getSafeUser: User authentication error:', userError.message)
       return { user: null, session: null, error: userError }
     }
     
     // If no authenticated user, return early
     if (!user) {
+      console.log('ℹ️ getSafeUser: No user found, returning null')
       return { user: null, session: null, error: null }
     }
+    
+    console.log('✅ getSafeUser: User found, getting session info...')
     
     // Get session for additional metadata (expiry, etc.) - but rely on user for auth
     const { data: { session } } = await supabase.auth.getSession()
@@ -323,6 +282,12 @@ export async function getSafeUser() {
     }
     
     // Return authenticated user with current session (or null session)
+    console.log('✅ getSafeUser: Returning user and session:', {
+      hasUser: !!user,
+      userId: user?.id,
+      hasSession: !!session,
+      sessionExpiry: session?.expires_at
+    })
     return { user, session, error: null }
   } catch (error) {
     // Handle any unexpected errors gracefully
