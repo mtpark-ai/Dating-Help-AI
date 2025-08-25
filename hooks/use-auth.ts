@@ -38,12 +38,30 @@ export function useAuth(): BaseAuthHook & {
       try {
         logger.authAttempt('auth_initialization')
         
-        // 添加延迟以确保 Supabase 客户端完全初始化（特别是对 Safari）
+        // 检查当前存储状态
         if (typeof window !== 'undefined') {
+          console.log('🔍 Storage state during auth init:', {
+            localStorage: Object.keys(localStorage).filter(k => k.startsWith('sb-')),
+            cookies: document.cookie.split('; ').filter(c => c.startsWith('sb-')).map(c => c.split('=')[0]),
+            timestamp: new Date().toISOString()
+          })
+          
           await new Promise(resolve => setTimeout(resolve, 100))
         }
         
-        // 使用安全的用户获取方法，永远不会抛出 "Auth session missing" 错误
+        // 首先直接调用 Supabase 的 getSession() 看看能否获取到 session
+        console.log('🔍 Calling supabase.auth.getSession() directly...')
+        const { data: { session: directSession }, error: directError } = await supabase.auth.getSession()
+        console.log('📥 Direct getSession() result:', {
+          hasSession: !!directSession,
+          hasUser: !!directSession?.user,
+          userId: directSession?.user?.id,
+          userEmail: directSession?.user?.email,
+          sessionExpiry: directSession?.expires_at,
+          error: directError?.message
+        })
+        
+        // 然后调用我们的 getSafeUser 方法
         console.log('🔍 Calling getSafeUser during auth initialization...')
         const { user, session, error } = await getSafeUser()
         console.log('📥 getSafeUser result:', {

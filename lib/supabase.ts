@@ -21,102 +21,36 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
     flowType: 'pkce',
     // 添加调试信息
     debug: process.env.NODE_ENV === 'development',
-    // Simplified storage configuration - let Supabase handle most storage logic
+    // 确保PKCE数据能正确存储为cookies供服务端访问
     storage: typeof window !== 'undefined' ? {
       getItem: (key: string) => {
-        const isPkceKey = key.includes('code-verifier') || key.includes('pkce')
-        const isSessionKey = key.includes('session') || key.includes('token')
+        // 先尝试localStorage
+        const localValue = localStorage.getItem(key)
+        if (localValue) return localValue
         
-        if (isPkceKey) {
-          console.log(`🔍 PKCE storage get: ${key}`)
-        }
-        if (isSessionKey) {
-          console.log(`🔍 Session storage get: ${key}`)
-        }
+        // 再尝试cookies（用于服务端设置的数据）
+        const cookieValue = document.cookie
+          .split('; ')
+          .find(row => row.startsWith(`${key}=`))
+          ?.split('=')[1]
         
-        // Simple fallback chain
-        try {
-          const localValue = localStorage.getItem(key)
-          if (localValue !== null) {
-            if (isPkceKey) console.log(`✅ PKCE found in localStorage`)
-            if (isSessionKey) console.log(`✅ Session found in localStorage`)
-            return localValue
-          }
-        } catch (e) {
-          console.warn(`localStorage failed for ${key}:`, e)
-        }
-        
-        try {
-          const sessionValue = sessionStorage.getItem(key)
-          if (sessionValue !== null) {
-            if (isPkceKey) console.log(`✅ PKCE found in sessionStorage`)
-            if (isSessionKey) console.log(`✅ Session found in sessionStorage`)
-            return sessionValue
-          }
-        } catch (e) {
-          console.warn(`sessionStorage failed for ${key}:`, e)
-        }
-        
-        if (isPkceKey || isSessionKey) {
-          console.log(`❌ ${isPkceKey ? 'PKCE' : 'Session'} not found in any storage`)
-        }
-        
-        return null
+        return cookieValue ? decodeURIComponent(cookieValue) : null
       },
       setItem: (key: string, value: string) => {
-        const isPkceKey = key.includes('code-verifier') || key.includes('pkce')
-        const isSessionKey = key.includes('session') || key.includes('token')
+        // 存储到localStorage
+        localStorage.setItem(key, value)
         
-        if (isPkceKey) {
-          console.log(`🔐 PKCE storage set: ${key} (${value.length} chars)`)
-        }
-        if (isSessionKey) {
-          console.log(`🔐 Session storage set: ${key} (${value.length} chars)`)
-        }
-        
-        // Always try localStorage first
-        try {
-          localStorage.setItem(key, value)
-          if (isPkceKey) console.log(`✅ PKCE stored in localStorage`)
-          if (isSessionKey) console.log(`✅ Session stored in localStorage`)
-          
-          // For PKCE, also store in cookies for server access
-          if (isPkceKey) {
-            try {
-              const maxAge = 60 * 60 // 1 hour
-              const secure = process.env.NODE_ENV === 'production' ? 'secure; ' : ''
-              document.cookie = `${key}=${encodeURIComponent(value)}; path=/; max-age=${maxAge}; ${secure}samesite=lax`
-              console.log(`✅ PKCE also stored in cookies for server`)
-            } catch (e) {
-              console.warn(`PKCE cookie storage failed:`, e)
-            }
-          }
-          
-          return
-        } catch (e) {
-          console.warn(`localStorage failed for ${key}:`, e)
-        }
-        
-        // Fallback to sessionStorage
-        try {
-          sessionStorage.setItem(key, value)
-          if (isPkceKey) console.log(`✅ PKCE stored in sessionStorage (fallback)`)
-          if (isSessionKey) console.log(`✅ Session stored in sessionStorage (fallback)`)
-        } catch (e) {
-          console.error(`All storage methods failed for ${key}:`, e)
+        // PKCE相关数据也存储为cookies（供服务端读取）
+        if (key.includes('verifier') || key.includes('pkce') || key.includes('code-challenge')) {
+          const maxAge = 10 * 60 // 10分钟，PKCE流程通常很快
+          const secure = process.env.NODE_ENV === 'production' ? 'secure; ' : ''
+          document.cookie = `${key}=${encodeURIComponent(value)}; path=/; max-age=${maxAge}; ${secure}samesite=lax`
         }
       },
       removeItem: (key: string) => {
-        try {
-          localStorage.removeItem(key)
-          sessionStorage.removeItem(key)
-          // Clean up PKCE cookies if any
-          if (key.includes('code-verifier') || key.includes('pkce')) {
-            document.cookie = `${key}=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT`
-          }
-        } catch (e) {
-          console.warn(`Failed to remove ${key}:`, e)
-        }
+        localStorage.removeItem(key)
+        // 同时清理cookies
+        document.cookie = `${key}=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT`
       }
     } : undefined
   },

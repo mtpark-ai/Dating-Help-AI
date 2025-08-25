@@ -84,10 +84,10 @@ export async function middleware(request: NextRequest) {
     )
 
     // If user is authenticated and trying to access login/signup pages, redirect to dashboard
-    if (isAuthenticated && (pathname === '/login' || pathname === '/signup')) {
-      const dashboardUrl = new URL('/dashboard', request.url)
-      return NextResponse.redirect(dashboardUrl)
-    }
+    // if (isAuthenticated && (pathname === '/login' || pathname === '/signup')) {
+    //   const dashboardUrl = new URL('/dashboard', request.url)
+    //   return NextResponse.redirect(dashboardUrl)
+    // }
 
     // If user is not authenticated and trying to access protected route, redirect to login
     if (!isAuthenticated && isProtectedRoute) {
