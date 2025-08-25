@@ -559,16 +559,7 @@ export function useAuth(): BaseAuthHook & {
       }
       
       const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: `${baseUrl}/auth/callback?type=google`,
-          queryParams: {
-            access_type: 'offline',
-            prompt: 'consent',
-          },
-          skipBrowserRedirect: false,
-          scopes: 'email profile',
-        },
+        provider: 'google'
       })
       
       console.log('OAuth signInWithOAuth result:', {
