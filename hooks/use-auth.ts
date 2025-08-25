@@ -406,6 +406,60 @@ export function useAuth(): BaseAuthHook & {
       // Use robust environment detection from url-helper
       const baseUrl = getBaseUrl(typeof window !== 'undefined' ? window.location.host : undefined)
       
+      console.log('Google OAuth initialization:', {
+        baseUrl,
+        redirectTo: `${baseUrl}/auth/callback?type=google`,
+        timestamp: new Date().toISOString(),
+        userAgent: typeof window !== 'undefined' ? navigator.userAgent : 'server'
+      })
+      
+      // Check current storage state before initiating OAuth
+      if (typeof window !== 'undefined') {
+        try {
+          console.log('Storage check before OAuth:', {
+            localStorage: {
+              available: !!window.localStorage,
+              testWrite: (() => {
+                try {
+                  window.localStorage.setItem('_test', 'test')
+                  window.localStorage.removeItem('_test')
+                  return true
+                } catch {
+                  return false
+                }
+              })()
+            },
+            sessionStorage: {
+              available: !!window.sessionStorage,
+              testWrite: (() => {
+                try {
+                  window.sessionStorage.setItem('_test', 'test')
+                  window.sessionStorage.removeItem('_test')
+                  return true
+                } catch {
+                  return false
+                }
+              })()
+            },
+            cookies: {
+              enabled: navigator.cookieEnabled,
+              canWrite: (() => {
+                try {
+                  document.cookie = '_test=test; path=/'
+                  const canRead = document.cookie.includes('_test=test')
+                  document.cookie = '_test=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT'
+                  return canRead
+                } catch {
+                  return false
+                }
+              })()
+            }
+          })
+        } catch (storageError) {
+          console.warn('Storage check failed:', storageError)
+        }
+      }
+      
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
@@ -419,6 +473,14 @@ export function useAuth(): BaseAuthHook & {
         },
       })
       
+      console.log('OAuth signInWithOAuth result:', {
+        hasData: !!data,
+        hasError: !!error,
+        dataUrl: data?.url ? `${data.url.substring(0, 100)}...` : null,
+        errorMessage: error?.message,
+        errorCode: error?.code
+      })
+      
       if (error) {
         const errorResult = handleAuthError(error, 'google_oauth')
         logger.authFailure('google_oauth', errorResult.error!.code, 'anonymous', errorResult.error || undefined, errorResult.logContext)
@@ -426,10 +488,33 @@ export function useAuth(): BaseAuthHook & {
         return { data: null, error: errorResult.error, success: false, errorResult }
       }
       
+      // Check storage state after OAuth initiation
+      if (typeof window !== 'undefined') {
+        setTimeout(() => {
+          try {
+            const pkceKeys = Object.keys(localStorage).filter(key => 
+              key.includes('code-verifier') || 
+              key.includes('pkce') ||
+              key.startsWith('sb-')
+            )
+            console.log('PKCE storage after OAuth initiation:', {
+              localStorage: pkceKeys.map(key => ({
+                key,
+                hasValue: !!localStorage.getItem(key),
+                valueLength: localStorage.getItem(key)?.length || 0
+              }))
+            })
+          } catch (storageError) {
+            console.warn('PKCE storage check failed:', storageError)
+          }
+        }, 100)
+      }
+      
       logger.authSuccess('google_oauth', 'anonymous')
       clearLastError()
       return { data, error: null, success: true, errorResult: null }
     } catch (error) {
+      console.error('Google OAuth exception:', error)
       const errorResult = handleAuthError(error as any, 'google_oauth')
       logger.authError('google_oauth', errorResult.error!, 'anonymous', errorResult.logContext || undefined)
       setLastError(errorResult)

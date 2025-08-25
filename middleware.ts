@@ -68,14 +68,14 @@ export async function middleware(request: NextRequest) {
     // Create Supabase client for middleware
     const supabase = createMiddlewareSupabaseClient(request)
     
-    // Get the current session
-    const { data: { session }, error } = await supabase.auth.getSession()
+    // Use secure getUser() method instead of getSession()
+    const { data: { user }, error } = await supabase.auth.getUser()
     
-    if (error) {
-      console.error('Middleware: Error getting session:', error)
+    if (error && !error.message?.includes('session') && !error.message?.includes('missing')) {
+      console.error('Middleware: Error getting user:', error)
     }
 
-    const isAuthenticated = !!session?.user
+    const isAuthenticated = !!user
     const isProtectedRoute = PROTECTED_ROUTES.some(route => 
       pathname === route || pathname.startsWith(route + '/')
     )

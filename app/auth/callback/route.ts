@@ -64,6 +64,10 @@ export async function GET(req: Request) {
         flowType: 'pkce',
         autoRefreshToken: true,
         persistSession: true,
+        // 确保服务端能处理 PKCE 流程
+        storageKey: 'sb-nlzqktgczzmzzresiqio-auth-token',
+        // 添加调试模式
+        debug: process.env.NODE_ENV === 'development',
       },
     }
   )
@@ -90,6 +94,35 @@ export async function GET(req: Request) {
     console.log('Exchanging code for session')
     console.log('Available cookies:', cookieStore.getAll().map(c => ({ name: c.name, hasValue: !!c.value })))
     
+    // 检查 PKCE 相关的 cookies
+    const allCookies = cookieStore.getAll()
+    const pkceCookies = allCookies.filter(c => 
+      c.name.includes('verifier') || 
+      c.name.includes('challenge') ||
+      c.name.includes('pkce') ||
+      c.name.startsWith('sb-') // Supabase cookies
+    )
+    console.log('All cookies:', allCookies.map(c => ({ 
+      name: c.name, 
+      hasValue: !!c.value,
+      valueLength: c.value?.length || 0,
+      startsWith_sb: c.name.startsWith('sb-')
+    })))
+    console.log('PKCE-related cookies:', pkceCookies.map(c => ({ 
+      name: c.name, 
+      hasValue: !!c.value,
+      valueLength: c.value?.length || 0 
+    })))
+    
+    // 特别检查预期的 PKCE cookie
+    const expectedVerifierKey = 'sb-nlzqktgczzmzzresiqio-auth-token-code-verifier'
+    const verifierCookie = allCookies.find(c => c.name === expectedVerifierKey)
+    console.log(`Expected PKCE verifier cookie (${expectedVerifierKey}):`, {
+      found: !!verifierCookie,
+      hasValue: !!verifierCookie?.value,
+      valueLength: verifierCookie?.value?.length || 0
+    })
+    
     try {
       const { error: exchangeErr } = await supabase.auth.exchangeCodeForSession(code)
       if (exchangeErr) {
@@ -97,14 +130,53 @@ export async function GET(req: Request) {
         console.error('Error details:', {
           message: exchangeErr.message,
           status: exchangeErr.status,
-          code: exchangeErr.code
+          code: exchangeErr.code,
+          name: exchangeErr.name
         })
+
+        // 如果是 code verifier 相关错误，尝试重置认证状态并重新开始
+        if (exchangeErr.message?.includes('code verifier') || 
+            exchangeErr.message?.includes('code_verifier') ||
+            exchangeErr.code === 'validation_failed') {
+          console.log('PKCE validation failed - clearing auth state and redirecting to retry')
+          
+          // 清除可能损坏的认证状态
+          try {
+            await supabase.auth.signOut()
+          } catch (signOutErr) {
+            console.warn('Error during signOut cleanup:', signOutErr)
+          }
+          
+          return NextResponse.redirect(
+            new URL('/login?reason=pkce_failed&retry=true', baseUrl)
+          )
+        }
+        
         return NextResponse.redirect(new URL('/login?reason=exchange_failed', baseUrl))
       }
       console.log('Code exchanged successfully, redirecting to:', next)
       return NextResponse.redirect(new URL(next, baseUrl))
     } catch (err) {
       console.error('Exception during code exchange:', err)
+      
+      // 检查是否是 PKCE 相关的异常
+      const errorMessage = err instanceof Error ? err.message : String(err)
+      if (errorMessage.includes('code verifier') || 
+          errorMessage.includes('code_verifier') ||
+          errorMessage.includes('PKCE')) {
+        console.log('PKCE exception - clearing auth state and redirecting to retry')
+        
+        try {
+          await supabase.auth.signOut()
+        } catch (signOutErr) {
+          console.warn('Error during signOut cleanup in catch:', signOutErr)
+        }
+        
+        return NextResponse.redirect(
+          new URL('/login?reason=pkce_exception&retry=true', baseUrl)
+        )
+      }
+      
       return NextResponse.redirect(new URL('/login?reason=exchange_error', baseUrl))
     }
   }
