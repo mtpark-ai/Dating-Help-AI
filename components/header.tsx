@@ -8,12 +8,17 @@ import { UserAvatar } from "@/components/user-avatar"
 
 export default function Header() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
-  const { user, signOut } = useAuth()
-
-  const handleSignOut = async () => {
-    await signOut()
-    setIsMobileMenuOpen(false)
-  }
+  const { user, loading, isAuthenticated } = useAuth()
+  
+  // Debug logging for header
+  console.log('🔗 Header component state:', {
+    hasUser: !!user,
+    userId: user?.id,
+    userEmail: user?.email,
+    loading,
+    isAuthenticated,
+    timestamp: new Date().toISOString()
+  })
 
   return (
     <header className="w-full py-4 md:py-6 px-4 md:px-8">
@@ -73,32 +78,15 @@ export default function Header() {
         </nav>
 
         {/* User Menu / Auth Buttons */}
-        <div className="hidden md:flex items-center space-x-4">
+        <div className="hidden md:flex items-center">
           {user ? (
-            <div className="flex items-center space-x-3">
-              <UserAvatar size="sm" />
-              <Button
-                onClick={handleSignOut}
-                variant="outline"
-                size="default"
-              >
-                Sign Out
-              </Button>
-            </div>
+            <UserAvatar size="md" showDropdown={true} />
           ) : (
-            <div className="flex items-center space-x-3">
-              <Link href="/login">
-                <Button variant="outline" size="default">
-                  Sign In
-                </Button>
-              </Link>
-              <Link href="/login?mode=signup">
-                <Button size="default" className="bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600">
-                  Sign Up
-                </Button>
-              </Link>
-              <UserAvatar size="md" />
-            </div>
+            <Link href="/login">
+              <Button size="default" className="rounded-full px-6 bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 text-white border-0">
+                Sign In
+              </Button>
+            </Link>
           )}
         </div>
 
@@ -123,34 +111,16 @@ export default function Header() {
             {/* User Info Section */}
             {user && (
               <div className="px-5 py-4 border-b border-gray-100">
-                <div className="flex items-center space-x-3">
-                  <UserAvatar size="md" />
-                  <div className="flex-1">
-                    <div className="text-xs text-gray-500">Signed in</div>
-                  </div>
-                </div>
-                <Button
-                  onClick={handleSignOut}
-                  variant="outline"
-                  size="lg"
-                  className="w-full mt-3 h-11 text-base px-5"
-                >
-                  Sign Out
-                </Button>
+                <UserAvatar size="lg" showDropdown={true} onSignOut={() => setIsMobileMenuOpen(false)} />
               </div>
             )}
 
-            {/* Auth Buttons (if not signed in) */}
+            {/* Auth Button (if not signed in) */}
             {!user && (
-              <div className="px-5 py-4 border-b border-gray-100 space-y-3">
+              <div className="px-5 py-4 border-b border-gray-100">
                 <Link href="/login" onClick={() => setIsMobileMenuOpen(false)}>
                   <Button variant="outline" className="w-full h-11 text-base px-5">
                     Sign In
-                  </Button>
-                </Link>
-                <Link href="/login?mode=signup" onClick={() => setIsMobileMenuOpen(false)}>
-                  <Button className="w-full h-11 text-base px-5 bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600">
-                    Sign Up
                   </Button>
                 </Link>
               </div>

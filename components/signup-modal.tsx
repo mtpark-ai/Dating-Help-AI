@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { X } from 'lucide-react'
+import { LoadingButton } from '@/components/ui/loading-button'
 import { useAuth } from '@/hooks/use-auth'
 import { useToast } from '@/hooks/use-toast'
 
@@ -153,20 +154,14 @@ export function SignupModal({ isOpen, onClose, onResetCount }: SignupModalProps)
               />
             </div>
             
-            <Button
+            <LoadingButton
               type="submit"
-              disabled={isLoading}
+              isLoading={isLoading}
+              operation={isSignUp ? 'signUp' : 'signIn'}
               className="w-full bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600"
             >
-              {isLoading ? (
-                <div className="flex items-center space-x-2">
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  <span>Loading...</span>
-                </div>
-              ) : (
-                isSignUp ? "Create Account" : "Sign In"
-              )}
-            </Button>
+              {isSignUp ? "Create Account" : "Sign In"}
+            </LoadingButton>
           </form>
           
           <div className="mt-4 text-center">

@@ -1,16 +1,18 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:news="http://www.google.com/schemas/sitemap-news/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml" xmlns:mobile="http://www.google.com/schemas/sitemap-mobile/1.0" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1" xmlns:video="http://www.google.com/schemas/sitemap-video/1.1">
-<url><loc>https://www.datinghelpai.com</loc><lastmod>2025-08-15T16:28:09.016Z</lastmod><changefreq>daily</changefreq><priority>1</priority></url>
-<url><loc>https://www.datinghelpai.com/signup-success</loc><lastmod>2025-08-15T16:28:09.016Z</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
-<url><loc>https://www.datinghelpai.com/signup-failed</loc><lastmod>2025-08-15T16:28:09.016Z</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
-<url><loc>https://www.datinghelpai.com/login-failed</loc><lastmod>2025-08-15T16:28:09.016Z</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
-<url><loc>https://www.datinghelpai.com/forgot-password</loc><lastmod>2025-08-15T16:28:09.016Z</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
-<url><loc>https://www.datinghelpai.com/admin/questions</loc><lastmod>2025-08-15T16:28:09.016Z</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
-<url><loc>https://www.datinghelpai.com/dashboard</loc><lastmod>2025-08-15T16:28:09.016Z</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
-<url><loc>https://www.datinghelpai.com/test-auth</loc><lastmod>2025-08-15T16:28:09.016Z</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
-<url><loc>https://www.datinghelpai.com/conversation</loc><lastmod>2025-08-15T16:28:09.016Z</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
-<url><loc>https://www.datinghelpai.com/login</loc><lastmod>2025-08-15T16:28:09.016Z</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
-<url><loc>https://www.datinghelpai.com/upload-screenshot</loc><lastmod>2025-08-15T16:28:09.016Z</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
-<url><loc>https://www.datinghelpai.com/pickup-lines</loc><lastmod>2025-08-15T16:28:09.016Z</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
-<url><loc>https://www.datinghelpai.com/login-success</loc><lastmod>2025-08-15T16:28:09.016Z</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
+<url><loc>https://www.datinghelpai.com/loading-demo</loc><lastmod>2025-08-23T10:33:10.226Z</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
+<url><loc>https://www.datinghelpai.com/dashboard</loc><lastmod>2025-08-23T10:33:10.227Z</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
+<url><loc>https://www.datinghelpai.com/admin/questions</loc><lastmod>2025-08-23T10:33:10.227Z</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
+<url><loc>https://www.datinghelpai.com/login</loc><lastmod>2025-08-23T10:33:10.227Z</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
+<url><loc>https://www.datinghelpai.com/test-auth-fix</loc><lastmod>2025-08-23T10:33:10.227Z</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
+<url><loc>https://www.datinghelpai.com/test-auth</loc><lastmod>2025-08-23T10:33:10.227Z</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
+<url><loc>https://www.datinghelpai.com/signup-success</loc><lastmod>2025-08-23T10:33:10.227Z</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
+<url><loc>https://www.datinghelpai.com</loc><lastmod>2025-08-23T10:33:10.227Z</lastmod><changefreq>daily</changefreq><priority>1</priority></url>
+<url><loc>https://www.datinghelpai.com/forgot-password</loc><lastmod>2025-08-23T10:33:10.227Z</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
+<url><loc>https://www.datinghelpai.com/conversation</loc><lastmod>2025-08-23T10:33:10.227Z</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
+<url><loc>https://www.datinghelpai.com/pickup-lines</loc><lastmod>2025-08-23T10:33:10.227Z</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
+<url><loc>https://www.datinghelpai.com/upload-screenshot</loc><lastmod>2025-08-23T10:33:10.227Z</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
+<url><loc>https://www.datinghelpai.com/login-success</loc><lastmod>2025-08-23T10:33:10.227Z</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
+<url><loc>https://www.datinghelpai.com/login-failed</loc><lastmod>2025-08-23T10:33:10.227Z</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
+<url><loc>https://www.datinghelpai.com/signup-failed</loc><lastmod>2025-08-23T10:33:10.227Z</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
 </urlset>
