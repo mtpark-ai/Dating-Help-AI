@@ -244,7 +244,7 @@ export function useAuth(): BaseAuthHook & {
           setLoading(false)
         } catch (error) {
           // 处理认证状态变化中的任何错误
-          logger.error('Error in auth state change handler', error, { 
+          logger.error('Error in auth state change handler', error instanceof Error ? error : undefined, { 
             event, 
             hasSession: !!session,
             errorMessage: error instanceof Error ? error.message : String(error)
@@ -559,7 +559,10 @@ export function useAuth(): BaseAuthHook & {
       }
       
       const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: 'google'
+        provider: 'google',
+        options: {
+          redirectTo: `${baseUrl}`,
+        }
       })
       
       console.log('OAuth signInWithOAuth result:', {
@@ -601,7 +604,7 @@ export function useAuth(): BaseAuthHook & {
       
       logger.authSuccess('google_oauth', 'anonymous')
       clearLastError()
-      return { data, error: null, success: true, errorResult: null }
+      return { data, error: null, success: true, errorResult: undefined }
     } catch (error) {
       console.error('Google OAuth exception:', error)
       const errorResult = handleAuthError(error as any, 'google_oauth')
