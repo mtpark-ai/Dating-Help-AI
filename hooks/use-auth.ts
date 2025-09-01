@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { supabase, getSafeUser, hasValidSession } from '@/lib/supabase'
+import { supabase, getSafeUser, hasValidSession, clearAllSessionStorage } from '@/lib/supabase'
 import type { User, Session } from '@supabase/supabase-js'
 import { useRouter } from 'next/navigation'
 import { handleAuthError, AuthErrorResult, isExpectedAuthError } from '@/lib/error-handler'
@@ -166,7 +166,7 @@ export function useAuth(): BaseAuthHook & {
 
     initializeAuth()
 
-    // 监听认证状态变化 - 增强版本，更好地处理状态变化
+    // 监听认证状态变化 - 增强版本，更好地处理状态变化和刷新令牌错误
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         try {
@@ -217,6 +217,9 @@ export function useAuth(): BaseAuthHook & {
             setUser(null)
             setLastError(null) // 退出时清除错误
             logger.info('Auth state change: user signed out', { event })
+            
+            // Clear all session-related storage on sign out
+            clearAllSessionStorage()
           } else if (event === 'USER_UPDATED') {
             // 处理用户更新（邮箱确认、资料更改等）
             if (session && isSession(session) && isUser(session.user)) {
@@ -244,17 +247,32 @@ export function useAuth(): BaseAuthHook & {
           setLoading(false)
         } catch (error) {
           // 处理认证状态变化中的任何错误
+          const errorMessage = error instanceof Error ? error.message : String(error)
+          
           logger.error('Error in auth state change handler', error instanceof Error ? error : undefined, { 
             event, 
             hasSession: !!session,
-            errorMessage: error instanceof Error ? error.message : String(error)
+            errorMessage
           })
           
           // 确保在错误情况下不会卡在加载状态
           setLoading(false)
           
-          // 如果是严重错误，清除用户状态
-          if (error instanceof Error && !error.message.toLowerCase().includes('session')) {
+          // Handle specific refresh token errors in state change
+          if (errorMessage.toLowerCase().includes('refresh_token') || 
+              errorMessage.toLowerCase().includes('invalid refresh token')) {
+            
+            console.log('🚪 Refresh token error in auth state change - signing out user')
+            setUser(null)
+            setLastError(null) // Don't show error to user for refresh token issues
+            
+            // Clear storage using utility function
+            clearAllSessionStorage()
+            
+            // Optional: Redirect to login page
+            // router.push('/login?reason=session_expired')
+          } else if (error instanceof Error && !error.message.toLowerCase().includes('session')) {
+            // For non-session related errors, show error to user
             setUser(null)
             const errorResult = handleAuthError(error, 'auth_state_change')
             setLastError(errorResult)

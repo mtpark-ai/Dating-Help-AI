@@ -1,14 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { gptService } from '@/lib/gpt-service'
+import { conversationService } from '@/lib/services/conversation-service'
 import { handleApiError, wrapAsyncHandler, validateRequest, ValidationError } from '@/lib/error-handler'
 import { logger } from '@/lib/logger'
+import { createServerSupabaseClient } from '@/lib/supabase-server'
 import type { GenerateReplyRequest, RegenerateReplyRequest } from '@/types'
 
 export const POST = wrapAsyncHandler(async (request: NextRequest) => {
   const url = new URL(request.url)
   const action = url.searchParams.get('action')
   
-  logger.businessEvent('conversation_request_started', { action })
+  // Get user from session
+  const supabase = createServerSupabaseClient()
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  
+  if (authError || !user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+  
+  logger.businessEvent('conversation_request_started', { action, userId: user.id })
   
   if (action === 'regenerate') {
     const body: RegenerateReplyRequest = await request.json()
@@ -26,11 +35,15 @@ export const POST = wrapAsyncHandler(async (request: NextRequest) => {
     logger.debug('Regenerate reply request validated', {
       conversationLength: body.conversation.length,
       currentReplyLength: body.currentReply.length,
-      tone: body.tone
+      tone: body.tone,
+      userId: user.id
     })
     
     const startTime = Date.now()
-    const reply = await gptService.regenerateReply(body)
+    const reply = await conversationService.regenerateReply({
+      ...body,
+      userId: user.id
+    })
     const duration = Date.now() - startTime
     
     logger.performanceLog('regenerate_reply', duration, {
@@ -40,7 +53,8 @@ export const POST = wrapAsyncHandler(async (request: NextRequest) => {
     
     logger.businessEvent('conversation_reply_regenerated', {
       tone: body.tone,
-      duration
+      duration,
+      userId: user.id
     })
     
     return NextResponse.json({ reply })
@@ -61,11 +75,15 @@ export const POST = wrapAsyncHandler(async (request: NextRequest) => {
       conversationLength: body.conversation.length,
       tone: body.tone,
       hasMatchName: !!body.matchName,
-      hasOtherInfo: !!body.otherInfo
+      hasOtherInfo: !!body.otherInfo,
+      userId: user.id
     })
     
     const startTime = Date.now()
-    const replies = await gptService.generateReplies(body)
+    const replies = await conversationService.generateReplies({
+      ...body,
+      userId: user.id
+    })
     const duration = Date.now() - startTime
     
     logger.performanceLog('generate_replies', duration, {
@@ -76,7 +94,8 @@ export const POST = wrapAsyncHandler(async (request: NextRequest) => {
     logger.businessEvent('conversation_replies_generated', {
       tone: body.tone,
       repliesCount: replies.length,
-      duration
+      duration,
+      userId: user.id
     })
     
     return NextResponse.json({ replies })

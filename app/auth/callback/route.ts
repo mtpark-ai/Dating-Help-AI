@@ -56,10 +56,26 @@ export async function GET(req: Request) {
         },
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value, options }) => {
-            cookieStore.set(name, value, options)
+            try {
+              cookieStore.set(name, value, {
+                ...options,
+                httpOnly: true,
+                secure: process.env.NODE_ENV === 'production',
+                sameSite: 'lax',
+                path: '/'
+              })
+            } catch (error) {
+              console.warn(`Failed to set callback cookie ${name}:`, error)
+            }
           })
         },
       },
+      auth: {
+        autoRefreshToken: true,
+        persistSession: true,
+        detectSessionInUrl: true,
+        flowType: 'pkce'
+      }
     }
   )
 
