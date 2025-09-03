@@ -3,7 +3,7 @@
  * This file helps debug and test the refresh token fixes
  */
 
-import { supabase, clearAllSessionStorage, validateSessionToken } from './supabase'
+import { supabase, clearAllSessionStorage } from './supabase'
 
 export async function testAuthConfiguration() {
   console.log('🧪 Testing auth configuration...')
@@ -91,6 +91,20 @@ function testCookieWrite(): boolean {
   }
 }
 
+function isValidSessionToken(tokenString: string): boolean {
+  try {
+    const session = JSON.parse(tokenString)
+    return !!(
+      session &&
+      typeof session === 'object' &&
+      session.access_token &&
+      session.refresh_token
+    )
+  } catch {
+    return false
+  }
+}
+
 export async function simulateRefreshTokenError() {
   console.log('🧪 Simulating refresh token error...')
   
@@ -122,7 +136,7 @@ export function logSessionStorage() {
           acc[key] = {
             hasValue: !!value,
             length: value?.length || 0,
-            isValidJson: value ? validateSessionToken(value) : false
+            isValidJson: value ? isValidSessionToken(value) : false
           }
           return acc
         }, {} as Record<string, any>)

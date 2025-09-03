@@ -16,11 +16,10 @@ export function getBaseUrl(host?: string): string {
   
   // 检测环境（服务器端）
   const isDevelopment = process.env.NODE_ENV === 'development'
-  const isLocalhost = host?.includes('localhost') || host?.includes('127.0.0.1')
+  const isLocalhost = (host?.includes('localhost') || host?.includes('127.0.0.1')) ?? false
   const isProduction = !isDevelopment && !isLocalhost
 
   const url = isProduction ? 'https://www.datinghelpai.com' : `http://${host || 'localhost:3000'}`
-  console.log('getBaseUrl', url)
 
   return url
 }
