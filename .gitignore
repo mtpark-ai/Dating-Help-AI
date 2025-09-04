@@ -35,3 +35,6 @@ next-env.d.ts
 
 # Claude AI files
 .claude/
+
+# BMAD Core files
+.bmad-core/

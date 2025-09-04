@@ -1,11 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { generatePickupLines } from '@/lib/generate-pickup-lines'
+import { pickupLineService } from '@/lib/services/pickup-line-service'
 import { handleApiError, wrapAsyncHandler, validateRequest, ValidationError } from '@/lib/error-handler'
 import { logger } from '@/lib/logger'
+import { createServerSupabaseClient } from '@/lib/supabase-server'
 import type { GeneratePickupLinesRequest } from '@/types'
 
 export const POST = wrapAsyncHandler(async (request: NextRequest) => {
-  logger.businessEvent('pickup_lines_generation_started')
+  // Get user from session
+  const supabase = createServerSupabaseClient()
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  
+  if (authError || !user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  logger.businessEvent('pickup_lines_generation_started', { userId: user.id })
   
   const body: GeneratePickupLinesRequest = await request.json()
   
@@ -26,11 +35,23 @@ export const POST = wrapAsyncHandler(async (request: NextRequest) => {
   logger.debug('Pickup lines generation request validated', {
     hasAnalysis: !!body.analysis,
     insightsCount: body.analysis.insights?.length || 0,
-    tone: body.tone
+    tone: body.tone,
+    userId: user.id
   })
   
   const startTime = Date.now()
-  const result = await generatePickupLines(body)
+  
+  // Build prompt from analysis
+  const prompt = `Based on this profile analysis: ${body.analysis.summary}. Key insights: ${body.analysis.insights.join(', ')}`
+  
+  const result = await pickupLineService.generate({
+    userId: user.id,
+    prompt: prompt,
+    tone: body.tone || 'casual',
+    category: 'opener',
+    count: 3
+  })
+  
   const duration = Date.now() - startTime
   
   logger.performanceLog('pickup_lines_generation', duration, {
@@ -41,8 +62,9 @@ export const POST = wrapAsyncHandler(async (request: NextRequest) => {
   logger.businessEvent('pickup_lines_generated', {
     tone: body.tone,
     linesCount: result.lines?.length || 0,
-    duration
+    duration,
+    userId: user.id
   })
   
-  return NextResponse.json(result)
+  return NextResponse.json({ lines: result.lines })
 })

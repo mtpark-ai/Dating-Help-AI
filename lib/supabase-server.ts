@@ -1,59 +1,63 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { Database } from './database.types'
 
-// Server Components 客户端
-export const createServerSupabaseClient = () =>
-  createServerClient<Database>(
+// Server Components client
+export const createServerSupabaseClient = async () => {
+  const cookieStore = await cookies()
+  return createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        async getAll() {
-          return await cookies().getAll()
+        getAll() {
+          return cookieStore.getAll()
         },
-        async setAll(cookiesToSet) {
-          try {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookies().set(name, value, options)
-            )
-          } catch {
-            // The `setAll` method was called from a Server Component.
-            // This can be ignored if you have middleware refreshing
-            // user sessions.
-          }
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            cookieStore.set(name, value, options)
+          })
         },
       },
+      auth: {
+        autoRefreshToken: true,
+        persistSession: true,
+        detectSessionInUrl: false,
+        flowType: 'pkce'
+      }
     }
   )
+}
 
-// Route Handlers 客户端
-export const createRouteHandlerSupabaseClient = () =>
-  createServerClient<Database>(
+// Route Handlers client
+export const createRouteHandlerSupabaseClient = async () => {
+  const cookieStore = await cookies()
+  return createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        async getAll() {
-          return await cookies().getAll()
+        getAll() {
+          return cookieStore.getAll()
         },
-        async setAll(cookiesToSet) {
-          try {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookies().set(name, value, options)
-            )
-          } catch {
-            // The `setAll` method was called from a Server Component.
-            // This can be ignored if you have middleware refreshing
-            // user sessions.
-          }
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            cookieStore.set(name, value, options)
+          })
         },
       },
+      auth: {
+        autoRefreshToken: true,
+        persistSession: true,
+        detectSessionInUrl: true,
+        flowType: 'pkce'
+      }
     }
   )
+}
 
-// Middleware 客户端
+// Optimized middleware client
 export const createMiddlewareSupabaseClient = (request: NextRequest) =>
   createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -63,21 +67,18 @@ export const createMiddlewareSupabaseClient = (request: NextRequest) =>
         getAll() {
           return request.cookies.getAll()
         },
-        setAll(cookiesToSet) {
-          try {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              request.cookies.set(name, value, options)
-            )
-          } catch {
-            // The `setAll` method was called from a Server Component.
-            // This can be ignored if you have middleware refreshing
-            // user sessions.
-          }
+        setAll() {
+          // No-op in middleware to prevent issues
         },
       },
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+        detectSessionInUrl: false,
+        flowType: 'pkce'
+      }
     }
   )
 
-// 通用服务端客户端（用于 API 路由等）
-export const createServerSupabaseClientForAPI = () =>
-  createRouteHandlerSupabaseClient()
+// Alias for API routes
+export const createServerSupabaseClientForAPI = createRouteHandlerSupabaseClient

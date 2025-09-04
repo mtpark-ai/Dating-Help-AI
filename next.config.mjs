@@ -6,6 +6,58 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  // Webpack optimizations for better caching performance
+  webpack: (config, { buildId, dev, isServer, defaultLoaders, webpack }) => {
+    // Optimize webpack caching for large strings
+    if (config.cache && typeof config.cache === 'object') {
+      config.cache = {
+        ...config.cache,
+        type: 'filesystem',
+        // Use more efficient serialization for large content
+        compression: 'gzip',
+        // Split cache by content type to avoid large string serialization issues
+        name: `${config.name || 'default'}-${process.env.NODE_ENV || 'development'}`,
+      };
+    }
+
+    // Configure module rules for better handling of text files
+    config.module.rules.push({
+      test: /\.txt$/,
+      type: 'asset/resource',
+      generator: {
+        filename: 'static/prompts/[name]-[hash][ext]'
+      }
+    });
+
+    // Optimize chunk splitting to separate large configuration data
+    if (!dev && !isServer) {
+      config.optimization = {
+        ...config.optimization,
+        splitChunks: {
+          ...config.optimization.splitChunks,
+          cacheGroups: {
+            ...config.optimization.splitChunks?.cacheGroups,
+            // Separate prompts and configuration into their own chunks
+            prompts: {
+              test: /[\\/]lib[\\/]config[\\/]/,
+              name: 'prompts',
+              chunks: 'all',
+              priority: 30,
+            },
+            // Group other utilities
+            utils: {
+              test: /[\\/]lib[\\/](?!config)/,
+              name: 'utils',
+              chunks: 'all',
+              priority: 20,
+            },
+          },
+        },
+      };
+    }
+
+    return config;
+  },
   images: {
     unoptimized: true,
     formats: ['image/webp', 'image/avif'],

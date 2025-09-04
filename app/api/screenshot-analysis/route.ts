@@ -1,14 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { gptService } from '@/lib/gpt-service'
+import { screenshotService } from '@/lib/services/screenshot-service'
 import { handleApiError, wrapAsyncHandler, validateRequest, ValidationError } from '@/lib/error-handler'
 import { logger } from '@/lib/logger'
+import { createServerSupabaseClient } from '@/lib/supabase-server'
 import type { AnalyzeImageRequest, AnalyzeAndGenerateRequest } from '@/types'
 
 export const POST = wrapAsyncHandler(async (request: NextRequest) => {
+  // Get user from session
+  const supabase = createServerSupabaseClient()
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  
+  if (authError || !user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   const url = new URL(request.url)
   const action = url.searchParams.get('action')
   
-  logger.businessEvent('screenshot_analysis_started', { action })
+  logger.businessEvent('screenshot_analysis_started', { action, userId: user.id })
   
   if (action === 'analyze-and-generate') {
     const body: AnalyzeAndGenerateRequest = await request.json()
@@ -31,7 +40,10 @@ export const POST = wrapAsyncHandler(async (request: NextRequest) => {
     })
     
     const startTime = Date.now()
-    const result = await gptService.analyzeScreenshotAndGenerate(body)
+    const result = await screenshotService.analyzeAndGenerateReplies({
+      ...body,
+      userId: user.id
+    })
     const duration = Date.now() - startTime
     
     logger.performanceLog('screenshot_analyze_and_generate', duration, {
@@ -68,7 +80,10 @@ export const POST = wrapAsyncHandler(async (request: NextRequest) => {
     })
     
     const startTime = Date.now()
-    const result = await gptService.analyzeScreenshot(body)
+    const result = await screenshotService.analyzeAndExtract({
+      ...body,
+      userId: user.id
+    })
     const duration = Date.now() - startTime
     
     logger.performanceLog('screenshot_analysis', duration, {
