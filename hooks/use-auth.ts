@@ -272,11 +272,39 @@ export function useAuth(): BaseAuthHook & {
     const checkUrlForAuth = async () => {
       const urlParams = new URLSearchParams(window.location.search)
       const hasAuthParams = urlParams.has('code') || urlParams.has('access_token') || urlParams.has('refresh_token')
+      const method = urlParams.get('method')
       
       if (hasAuthParams) {
         console.log('Auth parameters detected in URL, waiting for auth state change...')
         // 如果有认证参数，等待认证状态变化
         // 不需要手动处理，Supabase 会自动处理
+      }
+      
+      // 如果是从 OAuth 回调返回的（有 method 参数），主动检查 session
+      if (method === 'google' || method === 'email') {
+        console.log('OAuth callback detected, checking session...')
+        
+        // 给一些时间让 cookies 设置完成
+        await new Promise(resolve => setTimeout(resolve, 500))
+        
+        // 主动获取当前 session
+        const { data: { session }, error } = await supabase.auth.getSession()
+        
+        if (session && session.user) {
+          console.log('✅ OAuth session found, updating user state')
+          setUser(session.user)
+          setLoading(false)
+          
+          // 检查是否有存储的重定向路径
+          const storedRedirect = sessionStorage.getItem('oauth_redirect')
+          if (storedRedirect) {
+            console.log('Redirecting to stored path:', storedRedirect)
+            sessionStorage.removeItem('oauth_redirect')
+            router.push(storedRedirect)
+          }
+        } else {
+          console.log('❌ No session found after OAuth callback')
+        }
       }
     }
 
@@ -284,7 +312,7 @@ export function useAuth(): BaseAuthHook & {
     if (typeof window !== 'undefined') {
       checkUrlForAuth()
     }
-  }, [])
+  }, [router])
 
   const signUp = async (email: string, password: string): Promise<SignUpResult> => {
     logger.authAttempt('signup', email)
@@ -499,14 +527,27 @@ export function useAuth(): BaseAuthHook & {
   const signInWithGoogle = async (): Promise<OAuthResult> => {
     logger.authAttempt('google_oauth', 'anonymous')
     authLoading.startLoading('signInWithGoogle', 'Connecting with Google...')
+    console.log('signInWithGoogle')
     
     try {
       // Use robust environment detection from url-helper
       const baseUrl = getBaseUrl(typeof window !== 'undefined' ? window.location.host : undefined)
+      console.log('signInWithGoogle baseUrl', baseUrl)
+      debugger
+      
+      // Preserve the original redirectTo parameter if it exists
+      const urlParams = new URLSearchParams(window.location.search)
+      const originalRedirectTo = urlParams.get('redirectTo')
+      
+      // Store the redirect path in sessionStorage to persist across OAuth flow
+      if (originalRedirectTo) {
+        sessionStorage.setItem('oauth_redirect', originalRedirectTo)
+      }
       
       console.log('Google OAuth initialization:', {
         baseUrl,
         redirectTo: `${baseUrl}/auth/callback?type=google`,
+        originalRedirectTo,
         timestamp: new Date().toISOString(),
         userAgent: typeof window !== 'undefined' ? navigator.userAgent : 'server'
       })
@@ -558,10 +599,17 @@ export function useAuth(): BaseAuthHook & {
         }
       }
       
+      // Build the redirect URL with the stored redirect path
+      let redirectUrl = `${baseUrl}/auth/callback?type=google`
+      if (originalRedirectTo) {
+        // Encode the redirect path to pass it through OAuth flow
+        redirectUrl += `&redirect=${encodeURIComponent(originalRedirectTo)}`
+      }
+      
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${baseUrl}`,
+          redirectTo: redirectUrl,
         }
       })
       

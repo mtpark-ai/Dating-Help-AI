@@ -18,11 +18,13 @@ function LoginForm() {
   const { toast } = useToast()
   const router = useRouter()
   const searchParams = useSearchParams()
-  const redirectTo = searchParams.get('redirectTo')
 
   const handleGoogleSignIn = async () => {
+    console.log('handleGoogleSignIn')
+    debugger;
     setIsGoogleLoading(true)
     try {
+      console.log('handleGoogleSignIn')
       const { error } = await signInWithGoogle()
       
       if (error) {

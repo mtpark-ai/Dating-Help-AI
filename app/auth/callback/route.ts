@@ -10,14 +10,22 @@ export async function GET(req: Request) {
   const url = new URL(req.url)
   
   // Get the correct base URL for environment (critical for OAuth redirects)
-  const baseUrl = getBaseUrl()
+  // 在开发环境下强制使用 localhost
+  const baseUrl = process.env.NODE_ENV === 'development' 
+    ? 'http://localhost:3000' 
+    : getBaseUrl()
 
   const code = url.searchParams.get('code')
   const error = url.searchParams.get('error')
   const errorDesc = url.searchParams.get('error_description') || ''
   const type = url.searchParams.get('type') || ''
+  
+  // Check for stored redirect path from OAuth flow
+  const storedRedirect = url.searchParams.get('state') || url.searchParams.get('redirect') || ''
+  
   const next =
     url.searchParams.get('next') ||
+    storedRedirect ||
     (type === 'signup'
       ? '/dashboard?welcome=true'
       : type === 'recovery'

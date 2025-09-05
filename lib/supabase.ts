@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js'
+import { createBrowserClient } from '@supabase/ssr'
 import { Database } from './database.types'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
@@ -8,8 +8,9 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing Supabase environment variables')
 }
 
-// 创建类型安全的前端客户端
-export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
+// 创建类型安全的前端客户端 - 使用 SSR 包确保 cookies 正确设置
+// 重要：不要自定义 storage，让 @supabase/ssr 使用默认的 cookie storage
+export const supabase = createBrowserClient<Database>(supabaseUrl, supabaseAnonKey, {
   auth: {
     // 自动刷新 token
     autoRefreshToken: true,
@@ -21,38 +22,12 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
     flowType: 'pkce',
     // 添加调试信息
     debug: process.env.NODE_ENV === 'development',
-    // 确保PKCE数据能正确存储为cookies供服务端访问
-    storage: typeof window !== 'undefined' ? {
-      getItem: (key: string) => {
-        // 先尝试localStorage
-        const localValue = localStorage.getItem(key)
-        if (localValue) return localValue
-        
-        // 再尝试cookies（用于服务端设置的数据）
-        const cookieValue = document.cookie
-          .split('; ')
-          .find(row => row.startsWith(`${key}=`))
-          ?.split('=')[1]
-        
-        return cookieValue ? decodeURIComponent(cookieValue) : null
-      },
-      setItem: (key: string, value: string) => {
-        // 存储到localStorage
-        localStorage.setItem(key, value)
-        
-        // PKCE相关数据也存储为cookies（供服务端读取）
-        if (key.includes('verifier') || key.includes('pkce') || key.includes('code-challenge')) {
-          const maxAge = 10 * 60 // 10分钟，PKCE流程通常很快
-          const secure = process.env.NODE_ENV === 'production' ? 'secure; ' : ''
-          document.cookie = `${key}=${encodeURIComponent(value)}; path=/; max-age=${maxAge}; ${secure}samesite=lax`
-        }
-      },
-      removeItem: (key: string) => {
-        localStorage.removeItem(key)
-        // 同时清理cookies
-        document.cookie = `${key}=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT`
-      }
-    } : undefined
+    // 不自定义 storage - 使用默认的 cookie storage
+    // 这确保客户端和服务端都能正确读取 session
+    // 在开发环境覆盖 redirectTo
+    ...(process.env.NODE_ENV === 'development' && {
+      redirectTo: 'http://localhost:3000/auth/callback'
+    })
   },
   // 实时订阅配置
   realtime: {
@@ -247,4 +222,4 @@ export async function getSafeUser() {
 
 // 导出类型
 export type { User } from '@supabase/supabase-js'
-export type { Database } 
+export type { Database }

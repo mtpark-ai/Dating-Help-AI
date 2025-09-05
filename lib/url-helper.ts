@@ -19,7 +19,7 @@ export function getBaseUrl(host?: string): string {
   const isLocalhost = host?.includes('localhost') || host?.includes('127.0.0.1')
   const isProduction = !isDevelopment && !isLocalhost
 
-  const url = isProduction ? 'https://www.datinghelpai.com' : `http://${host || 'localhost:3000'}`
+  const url = isProduction ? 'https://www.datinghelpai.com' : 'http://localhost:3000'
   console.log('getBaseUrl', url)
 
   return url

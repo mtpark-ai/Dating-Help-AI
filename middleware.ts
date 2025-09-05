@@ -37,6 +37,8 @@ const API_ROUTES = [
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
   
+  console.log(`[Middleware] Processing request for: ${pathname}`)
+  
   // Skip middleware for static files, images, favicon, and Next.js internals
   if (
     pathname.startsWith('/_next/') ||
@@ -51,20 +53,25 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith('/sitemap') ||
     pathname.includes('.') && !pathname.includes('/api/')
   ) {
+    console.log(`[Middleware] Skipping static file: ${pathname}`)
     return NextResponse.next()
   }
 
   // Handle API routes separately (they have their own auth logic)
   if (API_ROUTES.some(route => pathname.startsWith(route))) {
+    console.log(`[Middleware] Skipping API route: ${pathname}`)
     return NextResponse.next()
   }
 
   // Handle auth callback routes (allow them to process auth tokens)
   if (AUTH_CALLBACK_ROUTES.some(route => pathname.startsWith(route))) {
+    console.log(`[Middleware] Processing auth callback: ${pathname}`)
     return NextResponse.next()
   }
 
   try {
+    console.log(`[Middleware] Checking auth for: ${pathname}`)
+    
     // Create Supabase client for middleware
     const supabase = createMiddlewareSupabaseClient(request)
     
@@ -72,7 +79,7 @@ export async function middleware(request: NextRequest) {
     const { data: { user }, error } = await supabase.auth.getUser()
     
     if (error && !error.message?.includes('session') && !error.message?.includes('missing')) {
-      console.error('Middleware: Error getting user:', error)
+      console.error('[Middleware] Error getting user:', error)
     }
 
     const isAuthenticated = !!user
@@ -82,6 +89,15 @@ export async function middleware(request: NextRequest) {
     const isPublicRoute = PUBLIC_ROUTES.some(route => 
       pathname === route || pathname.startsWith(route + '/')
     )
+    
+    console.log(`[Middleware] Auth check for ${pathname}:`, {
+      isAuthenticated,
+      isProtectedRoute,
+      isPublicRoute,
+      userId: user?.id,
+      userEmail: user?.email,
+      hasUser: !!user
+    })
 
     // If user is authenticated and trying to access login/signup pages, redirect to dashboard
     // if (isAuthenticated && (pathname === '/login' || pathname === '/signup')) {
@@ -91,27 +107,33 @@ export async function middleware(request: NextRequest) {
 
     // If user is not authenticated and trying to access protected route, redirect to login
     if (!isAuthenticated && isProtectedRoute) {
+      console.log(`[Middleware] Redirecting to login - User not authenticated for protected route: ${pathname}`)
       const loginUrl = new URL('/login', request.url)
       // Add the intended destination as a query parameter for post-login redirect
       loginUrl.searchParams.set('redirectTo', pathname)
+      console.log(`[Middleware] Redirect URL: ${loginUrl.toString()}`)
       return NextResponse.redirect(loginUrl)
     }
 
     // Allow access to public routes regardless of auth status
     if (isPublicRoute) {
+      console.log(`[Middleware] Allowing access to public route: ${pathname}`)
       return NextResponse.next()
     }
 
     // For any other routes, check if user is authenticated
     if (!isAuthenticated && !isPublicRoute) {
+      console.log(`[Middleware] Redirecting to login - User not authenticated for non-public route: ${pathname}`)
       // If it's not explicitly a public route and user is not authenticated,
       // redirect to login
       const loginUrl = new URL('/login', request.url)
       loginUrl.searchParams.set('redirectTo', pathname)
+      console.log(`[Middleware] Redirect URL: ${loginUrl.toString()}`)
       return NextResponse.redirect(loginUrl)
     }
 
     // If we reach here, allow the request to proceed
+    console.log(`[Middleware] Allowing authenticated access to: ${pathname}`)
     return NextResponse.next()
 
   } catch (error) {
