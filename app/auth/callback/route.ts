@@ -27,14 +27,14 @@ export async function GET(req: Request) {
     url.searchParams.get('next') ||
     storedRedirect ||
     (type === 'signup'
-      ? '/dashboard?welcome=true'
+      ? '/?welcome=true'
       : type === 'recovery'
       ? '/login?reason=password_reset_success'
       : type === 'google'
-      ? '/dashboard?method=google'
+      ? '/'  // Google 登录成功后返回首页
       : type === 'magiclink'
-      ? '/dashboard?method=email'
-      : '/dashboard')
+      ? '/'  // Magic Link 登录成功后返回首页
+      : '/')  // 默认返回首页
 
   console.log('Auth callback received:', { 
     code: code ? `${code.substring(0, 8)}...` : null, 

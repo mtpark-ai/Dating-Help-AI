@@ -21,7 +21,6 @@ function LoginForm() {
 
   const handleGoogleSignIn = async () => {
     console.log('handleGoogleSignIn')
-    debugger;
     setIsGoogleLoading(true)
     try {
       console.log('handleGoogleSignIn')

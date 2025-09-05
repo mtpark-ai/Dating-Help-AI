@@ -1,12 +1,11 @@
 import { useState, useEffect } from 'react'
-import { supabase, getSafeUser, hasValidSession } from '@/lib/supabase'
-import type { User, Session } from '@supabase/supabase-js'
+import { supabase, getSafeUser } from '@/lib/supabase'
+import type { User } from '@supabase/supabase-js'
 import { useRouter } from 'next/navigation'
 import { handleAuthError, AuthErrorResult, isExpectedAuthError } from '@/lib/error-handler'
 import { logger } from '@/lib/logger'
 import { getBaseUrl } from '@/lib/url-helper'
 import { useAuthLoading } from './use-auth-loading'
-import type { AuthOperation } from '@/types/loading'
 import type {
   SignUpResult,
   SignInResult,
@@ -14,11 +13,12 @@ import type {
   PasswordResetResult,
   MagicLinkResult,
   OAuthResult,
-  BaseAuthHook,
-  EmailPasswordCredentials,
-  EmailOnlyCredentials
+  BaseAuthHook
 } from '@/types/auth'
 import { isUser, isSession } from '@/types/auth'
+
+// 开发环境调试开关
+const DEBUG = process.env.NODE_ENV === 'development'
 
 export function useAuth(): BaseAuthHook & {
   authLoading: ReturnType<typeof useAuthLoading>
@@ -38,67 +38,13 @@ export function useAuth(): BaseAuthHook & {
       try {
         logger.authAttempt('auth_initialization')
         
-        // 检查当前存储状态
-        if (typeof window !== 'undefined') {
-          console.log('🔍 Storage state during auth init:', {
-            localStorage: Object.keys(localStorage).filter(k => k.startsWith('sb-')),
-            cookies: document.cookie.split('; ').filter(c => c.startsWith('sb-')).map(c => c.split('=')[0]),
-            timestamp: new Date().toISOString()
-          })
-          
-          await new Promise(resolve => setTimeout(resolve, 100))
-        }
-        
-        // 首先直接调用 Supabase 的 getSession() 看看能否获取到 session
-        console.log('🔍 Calling supabase.auth.getSession() directly...')
-        const { data: { session: directSession }, error: directError } = await supabase.auth.getSession()
-        console.log('📥 Direct getSession() result:', {
-          hasSession: !!directSession,
-          hasUser: !!directSession?.user,
-          userId: directSession?.user?.id,
-          userEmail: directSession?.user?.email,
-          sessionExpiry: directSession?.expires_at,
-          error: directError?.message
-        })
-        
-        // 然后调用我们的 getSafeUser 方法
-        console.log('🔍 Calling getSafeUser during auth initialization...')
+        // 获取当前用户状态
         const { user, session, error } = await getSafeUser()
-        console.log('📥 getSafeUser result:', {
-          hasUser: !!user,
-          userId: user?.id,
-          userEmail: user?.email,
-          hasSession: !!session,
-          hasError: !!error,
-          errorMessage: error?.message
-        })
         
-        // BACKUP: If getSafeUser fails with "Auth session missing!", try getSession() directly
-        if (!user && error?.message?.includes('Auth session missing!')) {
-          console.log('🔄 Fallback: Trying getSession() directly...')
-          try {
-            const { data: { session }, error: sessionError } = await supabase.auth.getSession()
-            console.log('📥 Fallback getSession() result:', {
-              hasSession: !!session,
-              hasUser: !!session?.user,
-              userId: session?.user?.id,
-              userEmail: session?.user?.email,
-              sessionError: sessionError?.message
-            })
-            
-            if (session && session.user && !sessionError) {
-              console.log('✅ Fallback: Found valid session, using session user')
-              // Use the session user as fallback
-              setUser(session.user)
-              setLastError(null)
-              logger.authSuccess('auth_initialization_fallback', session.user.id, session.user.email)
-              setLoading(false)
-              return // Early return since we found the user
-            }
-          } catch (sessionErr) {
-            console.log('❌ Fallback getSession() error:', sessionErr)
-          }
+        if (DEBUG && error) {
+          console.log('🔍 Auth initialization error:', error.message)
         }
+        
         
         if (error) {
           // 使用新的辅助函数来判断是否是预期的认证错误
@@ -115,28 +61,14 @@ export function useAuth(): BaseAuthHook & {
           }
         }
         
-        console.log('🔍 Auth initialization result:', {
-          hasUser: !!user,
-          userId: user?.id,
-          userEmail: user?.email,
-          hasSession: !!session,
-          sessionExpiry: session?.expires_at,
-          isValidUser: user ? isUser(user) : false
-        })
-        
         if (user && isUser(user)) {
-          console.log('✅ Setting user state:', { userId: user.id, email: user.email })
           setUser(user)
-          setLastError(null) // 清除之前的错误
+          setLastError(null)
           logger.authSuccess('auth_initialization', user.id, user.email, { 
             hasSession: !!session,
             sessionExpiry: session?.expires_at
           })
         } else {
-          console.log('❌ No valid user found during initialization', { 
-            user: !!user, 
-            isValidUser: user ? isUser(user) : false 
-          })
           setUser(null)
           logger.info('No authenticated user found - initialization complete')
         }
@@ -157,10 +89,6 @@ export function useAuth(): BaseAuthHook & {
         setUser(null)
       } finally {
         setLoading(false)
-        logger.info('Auth initialization completed', { 
-          timestamp: new Date().toISOString(),
-          userAgent: typeof window !== 'undefined' ? navigator.userAgent : 'server'
-        })
       }
     }
 
@@ -190,12 +118,21 @@ export function useAuth(): BaseAuthHook & {
                 event
               })
               setUser(session.user)
-              setLastError(null) // 清除任何之前的错误
+              setLastError(null)
               logger.authSuccess('auth_state_change', session.user.id, session.user.email, { 
                 event, 
-                sessionExpiry: session.expires_at,
-                tokenType: session.token_type 
+                sessionExpiry: session.expires_at
               })
+              
+              // 处理 OAuth 回调后的重定向
+              if (event === 'SIGNED_IN' && typeof window !== 'undefined') {
+                const storedRedirect = sessionStorage.getItem('oauth_redirect')
+                if (storedRedirect) {
+                  sessionStorage.removeItem('oauth_redirect')
+                  // 使用 setTimeout 确保状态更新完成后再重定向
+                  setTimeout(() => router.push(storedRedirect), 100)
+                }
+              }
             } else {
               // 会话数据不完整或无效
               console.log('❌ Auth state change: Incomplete session data', { 
@@ -213,32 +150,17 @@ export function useAuth(): BaseAuthHook & {
               })
             }
           } else if (event === 'SIGNED_OUT') {
-            console.log('🚪 Auth state change: User signed out')
             setUser(null)
-            setLastError(null) // 退出时清除错误
+            setLastError(null)
             logger.info('Auth state change: user signed out', { event })
           } else if (event === 'USER_UPDATED') {
-            // 处理用户更新（邮箱确认、资料更改等）
             if (session && isSession(session) && isUser(session.user)) {
-              console.log('🔄 Auth state change: User updated', {
-                userId: session.user.id,
-                email: session.user.email
-              })
               setUser(session.user)
-              setLastError(null) // 用户更新成功时清除错误
+              setLastError(null)
               logger.authSuccess('user_updated', session.user.id, session.user.email, { event })
-            } else {
-              // 用户更新但会话无效，可能是部分更新
-              console.log('❌ Auth state change: User updated but session invalid')
-              logger.warn('User updated but session invalid', { event, hasSession: !!session })
             }
           } else if (event === 'PASSWORD_RECOVERY') {
-            console.log('🔑 Auth state change: Password recovery initiated')
             logger.info('Password recovery initiated', { event })
-          } else {
-            // 处理其他认证事件
-            console.log('❓ Auth state change: Unknown event', { event, hasSession: !!session })
-            logger.info('Auth state change: unknown event', { event, hasSession: !!session })
           }
           
           setLoading(false)
@@ -266,53 +188,6 @@ export function useAuth(): BaseAuthHook & {
     return () => subscription.unsubscribe()
   }, [])
 
-  // 额外的 useEffect 来确保在页面加载时检测 URL 中的会话
-  useEffect(() => {
-    // 检查 URL 中是否有认证相关的参数
-    const checkUrlForAuth = async () => {
-      const urlParams = new URLSearchParams(window.location.search)
-      const hasAuthParams = urlParams.has('code') || urlParams.has('access_token') || urlParams.has('refresh_token')
-      const method = urlParams.get('method')
-      
-      if (hasAuthParams) {
-        console.log('Auth parameters detected in URL, waiting for auth state change...')
-        // 如果有认证参数，等待认证状态变化
-        // 不需要手动处理，Supabase 会自动处理
-      }
-      
-      // 如果是从 OAuth 回调返回的（有 method 参数），主动检查 session
-      if (method === 'google' || method === 'email') {
-        console.log('OAuth callback detected, checking session...')
-        
-        // 给一些时间让 cookies 设置完成
-        await new Promise(resolve => setTimeout(resolve, 500))
-        
-        // 主动获取当前 session
-        const { data: { session }, error } = await supabase.auth.getSession()
-        
-        if (session && session.user) {
-          console.log('✅ OAuth session found, updating user state')
-          setUser(session.user)
-          setLoading(false)
-          
-          // 检查是否有存储的重定向路径
-          const storedRedirect = sessionStorage.getItem('oauth_redirect')
-          if (storedRedirect) {
-            console.log('Redirecting to stored path:', storedRedirect)
-            sessionStorage.removeItem('oauth_redirect')
-            router.push(storedRedirect)
-          }
-        } else {
-          console.log('❌ No session found after OAuth callback')
-        }
-      }
-    }
-
-    // 只在客户端执行
-    if (typeof window !== 'undefined') {
-      checkUrlForAuth()
-    }
-  }, [router])
 
   const signUp = async (email: string, password: string): Promise<SignUpResult> => {
     logger.authAttempt('signup', email)
@@ -339,7 +214,7 @@ export function useAuth(): BaseAuthHook & {
           logger.authFailure('signup', 'user_exists_attempting_login', email, error as Error)
           
           // 尝试自动登录
-          const loginResult = await signIn(email, password, false)
+          const loginResult = await signIn(email, password)
           
           if (loginResult.error) {
             // 自动登录失败，返回登录错误
@@ -391,8 +266,8 @@ export function useAuth(): BaseAuthHook & {
     }
   }
 
-  const signIn = async (email: string, password: string, rememberMe: boolean = false): Promise<SignInResult> => {
-    logger.authAttempt('signin', email, { rememberMe })
+  const signIn = async (email: string, password: string): Promise<SignInResult> => {
+    logger.authAttempt('signin', email)
     authLoading.startLoading('signIn', 'Signing you in...')
     
     try {
@@ -402,27 +277,16 @@ export function useAuth(): BaseAuthHook & {
       })
       
       if (error) {
-        const errorResult = handleAuthError(error, 'signin', { email, rememberMe })
+        const errorResult = handleAuthError(error, 'signin', { email })
         logger.authFailure('signin', errorResult.error!.code, email, errorResult.error || undefined, errorResult.logContext)
         setLastError(errorResult)
         return { data: null, error: errorResult.error, success: false, errorResult }
       }
       
-      // 如果用户选择记住我，设置session持久性
-      if (rememberMe && data.session) {
-        try {
-          await supabase.auth.setSession(data.session)
-          logger.info('Session persistence set', { userId: data.user?.id, email })
-        } catch (sessionError) {
-          logger.warn('Failed to set session persistence', { error: sessionError, email })
-          // 不阻止登录流程，只是记录警告
-        }
-      }
-      
-      logger.authSuccess('signin', data.user?.id, email, { rememberMe })
+      logger.authSuccess('signin', data.user?.id, email)
       return { data, error: null, success: true }
     } catch (error) {
-      const errorResult = handleAuthError(error, 'signin', { email, rememberMe })
+      const errorResult = handleAuthError(error, 'signin', { email })
       logger.authError('signin', errorResult.error!, email, errorResult.logContext)
       setLastError(errorResult)
       return { data: null, error: errorResult.error, success: false, errorResult }
@@ -447,7 +311,7 @@ export function useAuth(): BaseAuthHook & {
       }
       
       logger.authSuccess('signout', currentUser?.id, currentUser?.email)
-      router.push('/login')
+      router.push('/')  // 登出后返回首页
       return { data: null, error: null, success: true }
     } catch (error) {
       const errorResult = handleAuthError(error, 'signout', { userId: currentUser?.id })
@@ -527,83 +391,29 @@ export function useAuth(): BaseAuthHook & {
   const signInWithGoogle = async (): Promise<OAuthResult> => {
     logger.authAttempt('google_oauth', 'anonymous')
     authLoading.startLoading('signInWithGoogle', 'Connecting with Google...')
-    console.log('signInWithGoogle')
     
     try {
-      // Use robust environment detection from url-helper
-      const baseUrl = getBaseUrl(typeof window !== 'undefined' ? window.location.host : undefined)
-      console.log('signInWithGoogle baseUrl', baseUrl)
-      debugger
+      // 使用当前域名作为 base URL
+      const baseUrl = typeof window !== 'undefined' 
+        ? window.location.origin 
+        : getBaseUrl()
       
-      // Preserve the original redirectTo parameter if it exists
+      // 保存原始重定向路径
       const urlParams = new URLSearchParams(window.location.search)
       const originalRedirectTo = urlParams.get('redirectTo')
       
-      // Store the redirect path in sessionStorage to persist across OAuth flow
       if (originalRedirectTo) {
         sessionStorage.setItem('oauth_redirect', originalRedirectTo)
       }
       
-      console.log('Google OAuth initialization:', {
-        baseUrl,
-        redirectTo: `${baseUrl}/auth/callback?type=google`,
-        originalRedirectTo,
-        timestamp: new Date().toISOString(),
-        userAgent: typeof window !== 'undefined' ? navigator.userAgent : 'server'
-      })
-      
-      // Check current storage state before initiating OAuth
-      if (typeof window !== 'undefined') {
-        try {
-          console.log('Storage check before OAuth:', {
-            localStorage: {
-              available: !!window.localStorage,
-              testWrite: (() => {
-                try {
-                  window.localStorage.setItem('_test', 'test')
-                  window.localStorage.removeItem('_test')
-                  return true
-                } catch {
-                  return false
-                }
-              })()
-            },
-            sessionStorage: {
-              available: !!window.sessionStorage,
-              testWrite: (() => {
-                try {
-                  window.sessionStorage.setItem('_test', 'test')
-                  window.sessionStorage.removeItem('_test')
-                  return true
-                } catch {
-                  return false
-                }
-              })()
-            },
-            cookies: {
-              enabled: navigator.cookieEnabled,
-              canWrite: (() => {
-                try {
-                  document.cookie = '_test=test; path=/'
-                  const canRead = document.cookie.includes('_test=test')
-                  document.cookie = '_test=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT'
-                  return canRead
-                } catch {
-                  return false
-                }
-              })()
-            }
-          })
-        } catch (storageError) {
-          console.warn('Storage check failed:', storageError)
-        }
-      }
-      
-      // Build the redirect URL with the stored redirect path
+      // 构建 OAuth 回调 URL
       let redirectUrl = `${baseUrl}/auth/callback?type=google`
       if (originalRedirectTo) {
-        // Encode the redirect path to pass it through OAuth flow
-        redirectUrl += `&redirect=${encodeURIComponent(originalRedirectTo)}`
+          redirectUrl += `&redirect=${encodeURIComponent(originalRedirectTo)}`
+      }
+      
+      if (DEBUG) {
+        console.log('🔐 Google OAuth:', { baseUrl, redirectUrl, originalRedirectTo })
       }
       
       const { data, error } = await supabase.auth.signInWithOAuth({
@@ -613,14 +423,6 @@ export function useAuth(): BaseAuthHook & {
         }
       })
       
-      console.log('OAuth signInWithOAuth result:', {
-        hasData: !!data,
-        hasError: !!error,
-        dataUrl: data?.url ? `${data.url.substring(0, 100)}...` : null,
-        errorMessage: error?.message,
-        errorCode: error?.code
-      })
-      
       if (error) {
         const errorResult = handleAuthError(error, 'google_oauth')
         logger.authFailure('google_oauth', errorResult.error!.code, 'anonymous', errorResult.error || undefined, errorResult.logContext)
@@ -628,33 +430,10 @@ export function useAuth(): BaseAuthHook & {
         return { data: null, error: errorResult.error, success: false, errorResult }
       }
       
-      // Check storage state after OAuth initiation
-      if (typeof window !== 'undefined') {
-        setTimeout(() => {
-          try {
-            const pkceKeys = Object.keys(localStorage).filter(key => 
-              key.includes('code-verifier') || 
-              key.includes('pkce') ||
-              key.startsWith('sb-')
-            )
-            console.log('PKCE storage after OAuth initiation:', {
-              localStorage: pkceKeys.map(key => ({
-                key,
-                hasValue: !!localStorage.getItem(key),
-                valueLength: localStorage.getItem(key)?.length || 0
-              }))
-            })
-          } catch (storageError) {
-            console.warn('PKCE storage check failed:', storageError)
-          }
-        }, 100)
-      }
-      
       logger.authSuccess('google_oauth', 'anonymous')
       clearLastError()
       return { data, error: null, success: true, errorResult: undefined }
     } catch (error) {
-      console.error('Google OAuth exception:', error)
       const errorResult = handleAuthError(error as any, 'google_oauth')
       logger.authError('google_oauth', errorResult.error!, 'anonymous', errorResult.logContext || undefined)
       setLastError(errorResult)
@@ -668,18 +447,6 @@ export function useAuth(): BaseAuthHook & {
   const clearLastError = () => {
     setLastError(null)
   }
-
-  // Add debug logging for return state
-  console.log('🏠 useAuth returning state:', {
-    hasUser: !!user,
-    userId: user?.id,
-    userEmail: user?.email,
-    loading,
-    isAuthenticated: !!user,
-    isGuest: !user,
-    globalLoading: authLoading.loadingStates.globalLoading,
-    timestamp: new Date().toISOString()
-  })
 
   return {
     user,
